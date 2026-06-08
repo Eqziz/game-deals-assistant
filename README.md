@@ -199,5 +199,3 @@ Possible next steps:
 ## License
 
 This project is currently for personal and educational use.
-
-You can add a license later, for example MIT License.
