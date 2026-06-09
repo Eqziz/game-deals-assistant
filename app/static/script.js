@@ -672,3 +672,7 @@ if (titleSearch) {
     await loadFavorites();
     await loadOwnedGames();
 })();
+
+console.log("script.js loaded");
+console.log("Language button:", document.getElementById("langToggleBtn"));
+console.log("i18n elements:", document.querySelectorAll("[data-i18n]").length);
