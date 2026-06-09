@@ -26,46 +26,31 @@ def fetch_stores() -> List[Dict]:
 
 
 def fetch_deals(
-    min_discount: int = 10,
-    max_discount: int = 100,
-    store_id: Optional[str] = None,
-    title: Optional[str] = None,
-    max_price: Optional[float] = None,
-    free_only: bool = False,
-    page_size: int = 60,
-    max_results: int = 1000
-) -> List[Dict]:
-    """
-    Fetch game deals from CheapShark API
-    
-    Args:
-        min_discount: Minimum discount percentage
-        max_discount: Maximum discount percentage
-        store_id: Specific store to filter by
-        title: Game title to search for
-        max_price: Maximum price filter
-        free_only: Only return free games
-        page_size: Results per page
-        max_results: Maximum total results to fetch
-    
-    Returns:
-        List of deals
-    """
-    all_deals = []
-    page_number = 0
-
-    # Try to fetch stores for name mapping
+    min_discount=10,
+    max_discount=100,
+    store_id=None,
+    title=None,
+    max_price=None,
+    free_only=False,
+    page_size=60,
+    page_number=0,
+    max_scan_pages=5
+):
     try:
         stores = fetch_stores()
         store_map = {store["store_id"]: store["store_name"] for store in stores}
     except requests.RequestException:
-        logger.warning("Could not fetch store names, using store IDs")
         store_map = {}
 
-    while len(all_deals) < max_results:
+    result = []
+    current_page = page_number
+    scanned_pages = 0
+    next_page = None
+
+    while scanned_pages < max_scan_pages:
         params = {
             "pageSize": page_size,
-            "pageNumber": page_number,
+            "pageNumber": current_page,
             "sortBy": "Savings",
             "desc": "1",
             "lowerPrice": "0",
@@ -78,21 +63,13 @@ def fetch_deals(
         if title:
             params["title"] = title
 
-        try:
-            response = requests.get(
-                f"{BASE_URL}/deals",
-                params=params,
-                timeout=20
-            )
-            response.raise_for_status()
-        except requests.RequestException as e:
-            logger.error(f"Error fetching CheapShark deals: {e}")
-            raise
+        response = requests.get(f"{BASE_URL}/deals", params=params, timeout=20)
+        response.raise_for_status()
 
         raw_deals = response.json()
 
         if not raw_deals:
-            logger.info(f"No more deals found at page {page_number}")
+            next_page = None
             break
 
         for deal in raw_deals:
@@ -100,7 +77,6 @@ def fetch_deals(
             sale_price = float(deal.get("salePrice", 0))
             normal_price = float(deal.get("normalPrice", 0))
 
-            # Apply filters
             if not (float(min_discount) <= savings <= float(max_discount)):
                 continue
 
@@ -114,13 +90,13 @@ def fetch_deals(
             store_name = store_map.get(deal_store_id, f"Store #{deal_store_id}")
             steam_app_id = deal.get("steamAppID")
 
-            all_deals.append({
+            result.append({
                 "title": deal.get("title"),
                 "platform_game_id": str(steam_app_id) if steam_app_id else "",
                 "store_id": deal_store_id,
                 "store_name": store_name,
-                "sale_price": round(sale_price, 2),
-                "normal_price": round(normal_price, 2),
+                "sale_price": sale_price,
+                "normal_price": normal_price,
                 "savings": round(savings, 2),
                 "thumb": deal.get("thumb"),
                 "steam_app_id": str(steam_app_id) if steam_app_id else "",
@@ -128,10 +104,16 @@ def fetch_deals(
                 "source": "cheapshark",
             })
 
-            if len(all_deals) >= max_results:
-                break
+        has_more_raw_pages = len(raw_deals) == page_size
+        next_page = current_page + 1 if has_more_raw_pages else None
 
-        page_number += 1
+        if result or not has_more_raw_pages:
+            break
 
-    logger.info(f"Fetched {len(all_deals)} deals from CheapShark")
-    return all_deals
+        current_page += 1
+        scanned_pages += 1
+
+    return {
+        "deals": result,
+        "next_page": next_page,
+    }

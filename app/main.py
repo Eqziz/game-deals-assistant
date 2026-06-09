@@ -133,50 +133,86 @@ def mark_owned(deals: List[dict], user_id: int, hide_owned: bool = False) -> Lis
 
 @app.get("/api/deals")
 def deals(
-    min_discount: int = Query(10, ge=0, le=100),
-    max_discount: int = Query(100, ge=0, le=100),
-    store_id: Optional[str] = None,
-    title: Optional[str] = None,
-    max_price: Optional[float] = Query(default=None, ge=0),
+    min_discount: int = 10,
+    max_discount: int = 100,
+    store_id: str | None = None,
+    title: str | None = None,
+    max_price: float | None = Query(default=None),
     free_only: bool = False,
-    source: Optional[str] = None,
-    hide_owned: bool = False
+    source: str | None = None,
+    hide_owned: bool = False,
+    page: int = 0,
+    page_size: int = 60,
 ):
-    """Get filtered game deals"""
-    # Validate discount range
-    if min_discount > max_discount:
-        raise HTTPException(
-            status_code=400,
-            detail="min_discount cannot be greater than max_discount"
-        )
-    
+    if min_discount < 0 or max_discount > 100 or min_discount > max_discount:
+        raise HTTPException(status_code=400, detail="Invalid discount range.")
+
+    if page < 0:
+        raise HTTPException(status_code=400, detail="Invalid page number.")
+
+    if page_size < 1 or page_size > 100:
+        raise HTTPException(status_code=400, detail="Invalid page size.")
+
     user = get_or_create_demo_user()
-    
+
     try:
         if source == "steam" or store_id == "steam_direct":
-            loaded = fetch_steam_specials(
-                min_discount, max_discount, title, max_price, free_only,
-                cc="us", language="english"
+            all_steam_deals = fetch_steam_specials(
+                min_discount=min_discount,
+                max_discount=max_discount,
+                title=title,
+                max_price=max_price,
+                free_only=free_only,
+                cc="us",
+                language="english",
             )
-            logger.info(f"Fetched {len(loaded)} Steam deals")
-        else:
-            real = None if store_id in (None, "", "cheapshark_all") else store_id
-            loaded = fetch_cheapshark_deals(
-                min_discount, max_discount, real, title, max_price, free_only
+
+            marked_deals = mark_owned(
+                all_steam_deals,
+                user["id"],
+                hide_owned=hide_owned,
             )
-            logger.info(f"Fetched {len(loaded)} CheapShark deals")
-        
-        return mark_owned(loaded, user["id"], hide_owned)
-    
-    except requests.RequestException as e:
-        logger.error(f"Error fetching deals: {e}")
+
+            start = page * page_size
+            end = start + page_size
+
+            page_deals = marked_deals[start:end]
+            next_page = page + 1 if end < len(marked_deals) else None
+
+            return {
+                "deals": page_deals,
+                "next_page": next_page,
+            }
+
+        real_store_id = None if store_id in (None, "", "cheapshark_all") else store_id
+
+        loaded_result = fetch_cheapshark_deals(
+            min_discount=min_discount,
+            max_discount=max_discount,
+            store_id=real_store_id,
+            title=title,
+            max_price=max_price,
+            free_only=free_only,
+            page_number=page,
+            page_size=page_size,
+        )
+
+        marked_deals = mark_owned(
+            loaded_result["deals"],
+            user["id"],
+            hide_owned=hide_owned,
+        )
+
+        return {
+            "deals": marked_deals,
+            "next_page": loaded_result["next_page"],
+        }
+
+    except requests.RequestException as error:
         raise HTTPException(
             status_code=503,
-            detail=f"Cannot load deals from external API: {str(e)}"
+            detail=f"Cannot load deals from external API: {error}"
         )
-    except Exception as e:
-        logger.error(f"Unexpected error in deals endpoint: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.post("/api/favorites")
 def favorite_create(p: FavoriteCreate):

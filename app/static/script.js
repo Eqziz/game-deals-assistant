@@ -75,6 +75,7 @@ const translations = {
         games: "игр",
 
         loading: "Загрузка...",
+        loadMore: "Ещё",
 
         errorSources: "Ошибка загрузки источников",
         errorDeals: "Ошибка загрузки скидок",
@@ -159,6 +160,7 @@ const translations = {
         games: "games",
 
         loading: "Loading...",
+        loadMore: "More",
 
         errorSources: "Source loading error",
         errorDeals: "Deals loading error",
@@ -207,8 +209,10 @@ function applyLanguage() {
 }
 
 const dealsGrid = document.getElementById("dealsGrid");
+const loadMoreBtn = document.getElementById("loadMoreBtn");
 const favoritesGrid = document.getElementById("favoritesGrid");
 const ownedGrid = document.getElementById("ownedGrid");
+const loadMoreBtn = document.getElementById("loadMoreBtn");
 const storeSelect = document.getElementById("storeSelect");
 const dealsCount = document.getElementById("dealsCount");
 const ownedCount = document.getElementById("ownedCount");
@@ -220,6 +224,8 @@ const supportModal = document.getElementById("supportModal");
 const closeSupportBtn = document.getElementById("closeSupportBtn");
 
 let lastDeals = [];
+let nextDealsPage = null;
+let currentDealsExtra = {};
 
 async function api(path, options = {}) {
     try {
@@ -408,29 +414,35 @@ function renderDeals(deals) {
     });
 }
 
-async function loadDeals(extra = {}) {
+async function loadDeals(extra = {}, append = false) {
     showError("");
-    dealsGrid.innerHTML = `<p>${t("loading")}</p>`;
+
+    if (!append) {
+        dealsGrid.innerHTML = `<p>${t("loading")}</p>`;
+        lastDeals = [];
+        nextDealsPage = null;
+        currentDealsExtra = extra;
+    }
 
     const minDiscount = extra.minDiscount ?? document.getElementById("minDiscount").value;
     const maxDiscount = extra.maxDiscount ?? document.getElementById("maxDiscount").value;
-    
-    // Validate discount range
-    if (!validateDiscountRange(minDiscount, maxDiscount)) {
-        showError("Invalid discount range");
-        dealsGrid.innerHTML = "";
-        dealsCount.textContent = `0 ${t("games")}`;
-        return;
-    }
-
     const storeId = storeSelect.value;
     const title = document.getElementById("titleSearch").value.trim();
     const hideOwned = document.getElementById("hideOwned").checked;
 
+    const pageToLoad = append ? nextDealsPage : 0;
+
+    if (pageToLoad === null) {
+        return;
+    }
+
     const params = new URLSearchParams();
+
     params.append("min_discount", minDiscount);
     params.append("max_discount", maxDiscount);
     params.append("hide_owned", hideOwned ? "true" : "false");
+    params.append("page", pageToLoad);
+    params.append("page_size", 60);
 
     if (storeId === "steam_direct") {
         params.append("source", "steam");
@@ -451,12 +463,61 @@ async function loadDeals(extra = {}) {
     }
 
     try {
-        lastDeals = await api(`/api/deals?${params.toString()}`);
+        const response = await api(`/api/deals?${params.toString()}`);
+
+        const newDeals = Array.isArray(response)
+            ? response
+            : response.deals || [];
+
+        nextDealsPage = Array.isArray(response)
+            ? null
+            : response.next_page;
+
+        lastDeals = append
+            ? [...lastDeals, ...newDeals]
+            : newDeals;
+
         renderDeals(lastDeals);
+        updateLoadMoreButton();
     } catch (error) {
-        dealsGrid.innerHTML = "";
-        dealsCount.textContent = `0 ${t("games")}`;
+        if (!append) {
+            dealsGrid.innerHTML = "";
+            dealsCount.textContent = `0 ${t("games")}`;
+        }
+
         showError(`${t("errorDeals")}: ${error.message}`);
+        console.error(error);
+    }
+}
+
+function updateLoadMoreButton() {
+    if (!loadMoreBtn) {
+        return;
+    }
+
+    if (nextDealsPage === null) {
+        loadMoreBtn.classList.add("hidden");
+    } else {
+        loadMoreBtn.classList.remove("hidden");
+        loadMoreBtn.textContent = t("loadMore");
+    }
+}
+
+async function loadMoreDeals() {
+    if (nextDealsPage === null) {
+        return;
+    }
+
+    if (loadMoreBtn) {
+        loadMoreBtn.disabled = true;
+        loadMoreBtn.textContent = t("loading");
+    }
+
+    await loadDeals(currentDealsExtra, true);
+
+    if (loadMoreBtn) {
+        loadMoreBtn.disabled = false;
+        updateLoadMoreButton();
     }
 }
 
@@ -658,6 +719,10 @@ const titleSearch = document.getElementById("titleSearch");
 
 if (loadDealsBtn) {
     loadDealsBtn.addEventListener("click", () => loadDeals());
+}
+
+if (loadMoreBtn) {
+    loadMoreBtn.addEventListener("click", loadMoreDeals);
 }
 
 if (sortSelect) {

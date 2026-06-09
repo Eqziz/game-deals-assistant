@@ -389,3 +389,14 @@ code {
         width: 100%;
     }
 }
+
+.load-more-btn {
+    display: block;
+    margin: 28px auto 0;
+    min-width: 220px;
+    font-weight: bold;
+}
+
+.load-more-btn.hidden {
+    display: none;
+}
