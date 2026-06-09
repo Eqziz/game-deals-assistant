@@ -74,6 +74,8 @@ const translations = {
         syncDone: "Готово. Синхронизировано игр:",
         games: "игр",
 
+        loading: "Загрузка...",
+
         errorSources: "Ошибка загрузки источников",
         errorDeals: "Ошибка загрузки скидок",
         errorFavorites: "Ошибка загрузки избранного",
@@ -156,6 +158,8 @@ const translations = {
         syncDone: "Done. Synced games:",
         games: "games",
 
+        loading: "Loading...",
+
         errorSources: "Source loading error",
         errorDeals: "Deals loading error",
         errorFavorites: "Favorites loading error",
@@ -223,7 +227,9 @@ async function api(path, options = {}) {
 }
 
 function showError(message) {
-    errorBox.textContent = message || "";
+    if (errorBox) {
+        errorBox.textContent = message || "";
+    }
 }
 
 function money(value) {
@@ -232,6 +238,10 @@ function money(value) {
 }
 
 function setupSupportModal() {
+    if (!supportBtn || !supportModal || !closeSupportBtn) {
+        return;
+    }
+
     supportBtn.addEventListener("click", () => {
         supportModal.classList.remove("hidden");
     });
@@ -371,7 +381,7 @@ function renderDeals(deals) {
 
 async function loadDeals(extra = {}) {
     showError("");
-    dealsGrid.innerHTML = "<p>Loading...</p>";
+    dealsGrid.innerHTML = `<p>${t("loading")}</p>`;
 
     const minDiscount = extra.minDiscount ?? document.getElementById("minDiscount").value;
     const maxDiscount = extra.maxDiscount ?? document.getElementById("maxDiscount").value;
@@ -476,11 +486,13 @@ async function loadOwnedGames() {
                 <div class="card-body">
                     <span class="owned-badge">${t("alreadyOwned")}</span>
                     <h3>${game.title || game.platform_game_id}</h3>
+
                     <div class="meta">
                         <div>${t("platform")}: ${game.platform}</div>
                         <div>${t("gameId")}: ${game.platform_game_id}</div>
                         <div>${t("playtime")}: ${game.playtime_minutes || 0} min</div>
                     </div>
+
                     <div class="card-actions">
                         <button>${t("delete")}</button>
                     </div>
@@ -591,31 +603,65 @@ function applyPreset(preset) {
     }
 }
 
-document.getElementById("loadDealsBtn").addEventListener("click", () => loadDeals());
-document.getElementById("sortSelect").addEventListener("change", () => renderDeals(lastDeals));
-document.getElementById("hideOwned").addEventListener("change", () => loadDeals());
-document.getElementById("manualAddBtn").addEventListener("click", addManualOwnedGame);
-document.getElementById("syncSteamBtn").addEventListener("click", syncSteamLibrary);
+const loadDealsBtn = document.getElementById("loadDealsBtn");
+const sortSelect = document.getElementById("sortSelect");
+const hideOwnedCheckbox = document.getElementById("hideOwned");
+const manualAddBtn = document.getElementById("manualAddBtn");
+const syncSteamBtn = document.getElementById("syncSteamBtn");
+const langToggleBtn = document.getElementById("langToggleBtn");
+const titleSearch = document.getElementById("titleSearch");
 
-document.getElementById("langToggleBtn").addEventListener("click", () => {
-    currentLanguage = currentLanguage === "ru" ? "en" : "ru";
-    localStorage.setItem("language", currentLanguage);
+if (loadDealsBtn) {
+    loadDealsBtn.addEventListener("click", () => loadDeals());
+}
 
-    applyLanguage();
-    renderDeals(lastDeals);
-    loadFavorites();
-    loadOwnedGames();
-});
+if (sortSelect) {
+    sortSelect.addEventListener("change", () => renderDeals(lastDeals));
+}
+
+if (hideOwnedCheckbox) {
+    hideOwnedCheckbox.addEventListener("change", () => loadDeals());
+}
+
+if (manualAddBtn) {
+    manualAddBtn.addEventListener("click", addManualOwnedGame);
+}
+
+if (syncSteamBtn) {
+    syncSteamBtn.addEventListener("click", syncSteamLibrary);
+}
+
+if (langToggleBtn) {
+    langToggleBtn.addEventListener("click", async () => {
+        currentLanguage = currentLanguage === "ru" ? "en" : "ru";
+        localStorage.setItem("language", currentLanguage);
+
+        applyLanguage();
+
+        if (Array.isArray(lastDeals)) {
+            renderDeals(lastDeals);
+        }
+
+        try {
+            await loadFavorites();
+            await loadOwnedGames();
+        } catch (error) {
+            console.error("Language switch refresh error:", error);
+        }
+    });
+}
 
 document.querySelectorAll("[data-preset]").forEach(button => {
     button.addEventListener("click", () => applyPreset(button.dataset.preset));
 });
 
-document.getElementById("titleSearch").addEventListener("keydown", event => {
-    if (event.key === "Enter") {
-        loadDeals();
-    }
-});
+if (titleSearch) {
+    titleSearch.addEventListener("keydown", event => {
+        if (event.key === "Enter") {
+            loadDeals();
+        }
+    });
+}
 
 (async function init() {
     setupSupportModal();
