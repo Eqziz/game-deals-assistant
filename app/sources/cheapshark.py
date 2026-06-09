@@ -1,25 +1,65 @@
 import requests
-BASE_URL="https://www.cheapshark.com/api/1.0"
-def fetch_stores():
-    r=requests.get(f"{BASE_URL}/stores",timeout=20); r.raise_for_status()
-    return [{"store_id":str(s.get("storeID")),"store_name":s.get("storeName")} for s in r.json() if s.get("isActive") in (1,"1")]
+import logging
+from typing import List, Dict, Optional
+
+logger = logging.getLogger(__name__)
+
+BASE_URL = "https://www.cheapshark.com/api/1.0"
+
+
+def fetch_stores() -> List[Dict]:
+    """Fetch all active stores from CheapShark"""
+    try:
+        r = requests.get(f"{BASE_URL}/stores", timeout=20)
+        r.raise_for_status()
+        stores = r.json()
+        result = [
+            {"store_id": str(s.get("storeID")), "store_name": s.get("storeName")}
+            for s in stores
+            if s.get("isActive") in (1, "1")
+        ]
+        logger.info(f"Fetched {len(result)} stores from CheapShark")
+        return result
+    except requests.RequestException as e:
+        logger.error(f"Error fetching CheapShark stores: {e}")
+        raise
+
+
 def fetch_deals(
-    min_discount=10,
-    max_discount=100,
-    store_id=None,
-    title=None,
-    max_price=None,
-    free_only=False,
-    page_size=60,
-    max_results=1000
-):
+    min_discount: int = 10,
+    max_discount: int = 100,
+    store_id: Optional[str] = None,
+    title: Optional[str] = None,
+    max_price: Optional[float] = None,
+    free_only: bool = False,
+    page_size: int = 60,
+    max_results: int = 1000
+) -> List[Dict]:
+    """
+    Fetch game deals from CheapShark API
+    
+    Args:
+        min_discount: Minimum discount percentage
+        max_discount: Maximum discount percentage
+        store_id: Specific store to filter by
+        title: Game title to search for
+        max_price: Maximum price filter
+        free_only: Only return free games
+        page_size: Results per page
+        max_results: Maximum total results to fetch
+    
+    Returns:
+        List of deals
+    """
     all_deals = []
     page_number = 0
 
+    # Try to fetch stores for name mapping
     try:
         stores = fetch_stores()
         store_map = {store["store_id"]: store["store_name"] for store in stores}
     except requests.RequestException:
+        logger.warning("Could not fetch store names, using store IDs")
         store_map = {}
 
     while len(all_deals) < max_results:
@@ -38,12 +78,21 @@ def fetch_deals(
         if title:
             params["title"] = title
 
-        response = requests.get(f"{BASE_URL}/deals", params=params, timeout=20)
-        response.raise_for_status()
+        try:
+            response = requests.get(
+                f"{BASE_URL}/deals",
+                params=params,
+                timeout=20
+            )
+            response.raise_for_status()
+        except requests.RequestException as e:
+            logger.error(f"Error fetching CheapShark deals: {e}")
+            raise
 
         raw_deals = response.json()
 
         if not raw_deals:
+            logger.info(f"No more deals found at page {page_number}")
             break
 
         for deal in raw_deals:
@@ -51,6 +100,7 @@ def fetch_deals(
             sale_price = float(deal.get("salePrice", 0))
             normal_price = float(deal.get("normalPrice", 0))
 
+            # Apply filters
             if not (float(min_discount) <= savings <= float(max_discount)):
                 continue
 
@@ -69,8 +119,8 @@ def fetch_deals(
                 "platform_game_id": str(steam_app_id) if steam_app_id else "",
                 "store_id": deal_store_id,
                 "store_name": store_name,
-                "sale_price": sale_price,
-                "normal_price": normal_price,
+                "sale_price": round(sale_price, 2),
+                "normal_price": round(normal_price, 2),
                 "savings": round(savings, 2),
                 "thumb": deal.get("thumb"),
                 "steam_app_id": str(steam_app_id) if steam_app_id else "",
@@ -83,4 +133,5 @@ def fetch_deals(
 
         page_number += 1
 
+    logger.info(f"Fetched {len(all_deals)} deals from CheapShark")
     return all_deals

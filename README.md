@@ -1,205 +1,330 @@
 # Game Deals Assistant
 
-**Game Deals Assistant** is a personal web app for tracking game discounts, saving favorite deals, and marking games you already own.
+**Game Deals Assistant** is a personal web application for tracking game discounts across multiple platforms (Steam, CheapShark), saving favorite deals, managing your game library, and marking games you already own.
 
-The project is built with **FastAPI**, **SQLite**, and a simple **HTML/CSS/JavaScript** frontend.
+Built with modern web technologies: **FastAPI**, **SQLite**, **HTML/CSS/JavaScript**, and **Docker**.
 
-## Features
+![Python](https://img.shields.io/badge/Python-3.12-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green)
+![License](https://img.shields.io/badge/License-MIT-yellow)
 
-- View real Steam discounts through Steam Store data.
-- View general PC game deals through CheapShark.
-- Filter games by discount percentage.
-- Filter deals under a target price.
-- Search games by title.
-- Sort deals by discount, price, title, or store.
-- Add deals to favorites.
-- Add owned games manually.
-- Mark games as **Already Owned**.
-- Hide already owned games from the deals list.
-- Basic Steam Library Sync structure through SteamID64 and Steam Web API key.
-- “Support the Author” section instead of premium/paywall logic.
+##  Features
 
-## Screenshots
+### Deal Discovery
+-  **Steam Store Integration** - View real-time Steam discounts
+-  **CheapShark Support** - Access deals from 100+ PC game stores
+-  **Advanced Filtering** - Filter by discount percentage, price range, store
+-  **Game Search** - Search deals by game title
+-  **Smart Sorting** - Sort by discount, price, title, or store
+-  **Preset Filters** - Quick access to 90%+, 75%+, Under $5, Free games
 
-Add your screenshots here later:
+### Library Management
+-  **Manual Library** - Add owned games from any platform (Steam, Epic, GOG, etc.)
+-  **Steam Library Sync** - Auto-sync your Steam library via SteamID64
+-  **Hide Owned Games** - Automatically hide already-owned games from deals
+-  **Playtime Tracking** - See playtime hours for Steam-synced games
 
-```text
-docs/screenshots/home.png
-docs/screenshots/deals.png
-docs/screenshots/library.png
+### Favorites & Preferences
+-  **Save Favorites** - Add deals to your favorites list
+-  **Price Alerts** - Set target prices for deals you're watching
+-  **Language Support** - English/Russian UI with persistent preferences
+-  **Local Storage** - All data stored locally in SQLite
+
+##  Quick Start
+
+### Prerequisites
+- Python 3.12+
+- pip or conda
+- Optional: Steam API Key (for Steam library sync)
+
+### Installation
+
+#### Option 1: Manual Setup
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/game-deals-assistant.git
+   cd game_deals_assistant
+   ```
+
+2. **Create virtual environment**
+   ```bash
+   # Windows
+   python -m venv .venv
+   .venv\Scripts\Activate.ps1
+   
+   # macOS/Linux
+   python3 -m venv .venv
+   source .venv/bin/activate
+   ```
+
+3. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Set up environment variables** (Optional)
+   ```bash
+   cp .env.example .env
+   # Edit .env and add your Steam API key if you have one
+   ```
+
+5. **Run the application**
+   ```bash
+   python -m uvicorn app.main:app --reload
+   ```
+
+6. **Open in browser**
+   ```
+   http://127.0.0.1:8000
+   ```
+
+#### Option 2: Docker Setup
+
+1. **Build and run with Docker Compose**
+   ```bash
+   docker-compose up -d
+   ```
+
+2. **Open in browser**
+   ```
+   http://localhost:8000
+   ```
+
+3. **Stop the container**
+   ```bash
+   docker-compose down
+   ```
+
+##  Steam API Setup (Optional)
+
+Steam Library Sync requires a Steam Web API key. Without it, you can still manually add owned games.
+
+### Get Your Steam API Key
+
+1. Go to https://steamcommunity.com/dev/apikey
+2. Accept the agreement and enter a domain (e.g., `localhost`)
+3. Copy your API key
+
+### Set Environment Variable
+
+**Windows (PowerShell)**
+```powershell
+$env:STEAM_API_KEY="your_api_key_here"
+uvicorn app.main:app --reload
 ```
 
-Example markdown:
-
-```md
-![Home screen](docs/screenshots/home.png)
+**macOS/Linux (Bash)**
+```bash
+export STEAM_API_KEY="your_api_key_here"
+python -m uvicorn app.main:app --reload
 ```
 
-## Tech Stack
+##  Usage Guide
 
-- Python
-- FastAPI
-- Uvicorn
-- SQLite
-- Requests
-- HTML
-- CSS
-- JavaScript
+### Finding Deals
+1. Select filters (discount %, source, search term)
+2. Click **"Find Deals"** or use preset buttons
+3. Click **"Open"** to view deal or **"Add to Favorites"** to save
 
-## Project Structure
+### Steam Library Sync
+1. Find your SteamID64 (17-digit number from Steam profile)
+2. Enter it in "Connect Steam" section
+3. Click **"Sync Steam Library"**
 
-```text
+### Manual Library Entry
+1. Select platform from dropdown
+2. Enter game title
+3. Optionally add App ID
+4. Click **"Add"**
+
+##  Project Structure
+
+```
 game_deals_assistant/
-  app/
-    main.py
-    db.py
-    sources/
-      __init__.py
-      steam.py
-      cheapshark.py
-    static/
-      index.html
-      styles.css
-      script.js
-  requirements.txt
-  .env.example
-  .gitignore
-  README.md
+├── app/
+│   ├── main.py              # FastAPI application & routes
+│   ├── db.py                # SQLite database layer
+│   ├── sources/
+│   │   ├── steam.py         # Steam API integration
+│   │   └── cheapshark.py    # CheapShark API integration
+│   └── static/
+│       ├── index.html       # Frontend UI
+│       ├── styles.css       # Styling
+│       └── script.js        # Frontend logic
+├── .github/
+│   └── workflows/
+│       └── ci.yml           # GitHub Actions CI/CD
+├── Dockerfile               # Docker configuration
+├── docker-compose.yml       # Docker Compose setup
+├── requirements.txt         # Python dependencies
+└── README.md               # This file
 ```
 
-## Installation
+##  API Endpoints
 
-Clone the repository:
+### Public Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | Serve main HTML |
+| GET | `/api/me` | Get current user info |
+| GET | `/api/stores` | List available stores |
+| GET | `/api/deals` | Get filtered game deals |
+
+### Query Parameters for /api/deals
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `min_discount` | int | 10 | Minimum discount % |
+| `max_discount` | int | 100 | Maximum discount % |
+| `store_id` | str | null | Filter by store |
+| `source` | str | null | Filter by source (steam, cheapshark) |
+| `title` | str | null | Search by game title |
+| `max_price` | float | null | Maximum price filter |
+| `free_only` | bool | false | Only free games |
+| `hide_owned` | bool | false | Hide already owned |
+
+### Favorites Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/favorites` | Create favorite |
+| GET | `/api/favorites` | List favorites |
+| DELETE | `/api/favorites/{id}` | Delete favorite |
+
+### Library Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/owned-games` | List owned games |
+| POST | `/api/owned-games/manual` | Add game manually |
+| DELETE | `/api/owned-games/{id}` | Delete owned game |
+| POST | `/api/steam/sync` | Sync Steam library |
+
+##  Development
+
+### Code Quality
 
 ```bash
-git clone https://github.com/your-username/game-deals-assistant.git
-cd game-deals-assistant
+# Format code
+black app/
+
+# Sort imports
+isort app/
+
+# Lint
+flake8 app/
 ```
 
-Create a virtual environment:
+### Local Development with Hot Reload
 
 ```bash
-python -m venv .venv
+python -m uvicorn app.main:app --reload --port 8000
 ```
 
-Activate it on Windows PowerShell:
+##  Docker
 
-```powershell
-.venv\Scripts\Activate.ps1
-```
-
-Activate it on macOS/Linux:
+### Build Image
 
 ```bash
-source .venv/bin/activate
+docker build -t game-deals-assistant .
 ```
 
-Install dependencies:
+### Run Container
 
 ```bash
-python -m pip install -r requirements.txt
+docker run -p 8000:8000 \
+  -e STEAM_API_KEY=your_key_here \
+  game-deals-assistant
 ```
 
-Run the app:
+### Docker Compose
 
 ```bash
-python -m uvicorn app.main:app --reload
+# Start
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop
+docker-compose down
 ```
 
-Open in your browser:
+##  Dependencies
 
-```text
-http://127.0.0.1:8000
-```
+- **fastapi** - Modern Python web framework
+- **uvicorn** - ASGI server
+- **requests** - HTTP library
+- **pydantic** - Data validation
+- **python-dotenv** - Environment variables
 
-## Steam Library Sync
+See [requirements.txt](requirements.txt) for full list.
 
-Steam Library Sync is prepared, but it requires a Steam Web API key.
+##  Deployment
 
-Create a Steam Web API key and set it as an environment variable.
+### Render.com
 
-Windows PowerShell:
+1. Push to GitHub
+2. Connect repository to Render
+3. Add STEAM_API_KEY environment variable
+4. Deploy
 
-```powershell
-$env:STEAM_API_KEY="YOUR_STEAM_API_KEY"
-```
-
-macOS/Linux:
+### Docker
 
 ```bash
-export STEAM_API_KEY="YOUR_STEAM_API_KEY"
+docker-compose up -d
 ```
 
-Then run the server:
+##  Troubleshooting
 
-```bash
-python -m uvicorn app.main:app --reload
-```
+### Steam Library Sync Not Working
+- Verify STEAM_API_KEY is set correctly
+- Check SteamID64 is valid (17 digits)
+- Ensure Steam profile is public
+- Check internet connection
 
-In the app, enter your **SteamID64** and click **Sync Steam Library**.
+### Database Locked
+- Restart the application
+- Database will be automatically recovered
 
-If you do not set a Steam API key, you can still manually add owned games.
+### Deals Not Loading
+- Check internet connection
+- Try adjusting discount range (0-100%)
+- Try different sources
+- Check if APIs are responding
 
-## Support the Author
+##  Roadmap
 
-The app has a **Support the Author** button instead of premium/paywall logic.
+- [ ] Email/Telegram notifications
+- [ ] Epic Games integration
+- [ ] GOG store API
+- [ ] CSV/JSON export
+- [ ] Price history tracking
+- [ ] Multi-user accounts
+- [ ] Advanced analytics
+- [ ] Mobile app
 
-To change the support details, open:
+##  License
 
-```text
-app/static/index.html
-```
+MIT License - see LICENSE file for details
 
-Find this block:
+##  Contributing
 
-```html
-<div class="support-details">
-```
+Contributions welcome! Submit a Pull Request.
 
-Replace the placeholder data with your own:
+##  Support
 
-```text
-0000 0000 0000 0000
-Your name
-@your_username
-```
+- **Issues**: Create on GitHub
+- **Email**: nodirmuhammedov_acer@outlook.com
 
-You can also contact the author by email: nodirmuhammedov_acer@outlook.com
+##  Acknowledgments
 
-## Data Storage
+- **Steam** - Store API access
+- **CheapShark** - Deal aggregation service
+- **FastAPI** - Modern web framework
 
-The app uses SQLite.
+---
 
-After the first run, the database file will be created automatically:
-
-```text
-game_deals.db
-```
-
-This file is ignored by Git through `.gitignore`.
-
-## Notes About Epic Games
-
-Epic Games library sync is not implemented yet.
-
-For now, Epic-owned games can be added manually. This is intentional because Epic does not provide a simple public library API like Steam's owned games endpoint.
-
-## Roadmap
-
-Possible next steps:
-
-- Add real Epic Games deal source.
-- Add CSV import for owned games.
-- Add Telegram notifications.
-- Add price history.
-- Add user accounts.
-- Add Docker support.
-- Deploy the app online.
-
-## Live Demo
-
-https://your-render-link.onrender.com
-
-## License
-
-This project is currently for personal and educational use.
+**Made with ❤️ by Eqziz**

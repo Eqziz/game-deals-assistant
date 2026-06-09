@@ -210,31 +210,54 @@ const closeSupportBtn = document.getElementById("closeSupportBtn");
 let lastDeals = [];
 
 async function api(path, options = {}) {
-    const response = await fetch(path, {
-        headers: {
-            "Content-Type": "application/json",
-            ...(options.headers || {})
-        },
-        ...options
-    });
+    try {
+        const response = await fetch(path, {
+            headers: {
+                "Content-Type": "application/json",
+                ...(options.headers || {})
+            },
+            ...options
+        });
 
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.detail || "Request failed");
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.detail || `Request failed with status ${response.status}`);
+        }
+
+        return response.json();
+    } catch (error) {
+        console.error(`API Error (${path}):`, error);
+        throw error;
     }
-
-    return response.json();
 }
 
 function showError(message) {
     if (errorBox) {
         errorBox.textContent = message || "";
+        if (message) {
+            console.error("User Error:", message);
+        }
     }
 }
 
 function money(value) {
     const number = Number(value);
     return Number.isNaN(number) ? "$0.00" : `$${number.toFixed(2)}`;
+}
+
+function validateDiscountRange(min, max) {
+    const minNum = parseInt(min) || 0;
+    const maxNum = parseInt(max) || 100;
+    
+    if (minNum < 0 || maxNum > 100) {
+        return false;
+    }
+    
+    if (minNum > maxNum) {
+        return false;
+    }
+    
+    return true;
 }
 
 function setupSupportModal() {
@@ -279,17 +302,11 @@ function sortDeals(deals) {
 
     if (sortValue === "savings") {
         sorted.sort((a, b) => Number(b.savings) - Number(a.savings));
-    }
-
-    if (sortValue === "price") {
+    } else if (sortValue === "price") {
         sorted.sort((a, b) => Number(a.sale_price) - Number(b.sale_price));
-    }
-
-    if (sortValue === "title") {
+    } else if (sortValue === "title") {
         sorted.sort((a, b) => String(a.title || "").localeCompare(String(b.title || "")));
-    }
-
-    if (sortValue === "store") {
+    } else if (sortValue === "store") {
         sorted.sort((a, b) => String(a.store_name || "").localeCompare(String(b.store_name || "")));
     }
 
@@ -385,6 +402,15 @@ async function loadDeals(extra = {}) {
 
     const minDiscount = extra.minDiscount ?? document.getElementById("minDiscount").value;
     const maxDiscount = extra.maxDiscount ?? document.getElementById("maxDiscount").value;
+    
+    // Validate discount range
+    if (!validateDiscountRange(minDiscount, maxDiscount)) {
+        showError("Invalid discount range");
+        dealsGrid.innerHTML = "";
+        dealsCount.textContent = `0 ${t("games")}`;
+        return;
+    }
+
     const storeId = storeSelect.value;
     const title = document.getElementById("titleSearch").value.trim();
     const hideOwned = document.getElementById("hideOwned").checked;
@@ -419,7 +445,6 @@ async function loadDeals(extra = {}) {
         dealsGrid.innerHTML = "";
         dealsCount.textContent = `0 ${t("games")}`;
         showError(`${t("errorDeals")}: ${error.message}`);
-        console.error(error);
     }
 }
 

@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: game-deals-assistant
+    ports:
+      - "8000:8000"
+    environment:
+      - STEAM_API_KEY=${STEAM_API_KEY}
+      - DEBUG=false
+    volumes:
+      - ./game_deals.db:/app/game_deals.db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
