@@ -1,3 +1,195 @@
+let currentLanguage = localStorage.getItem("language") || "ru";
+
+const translations = {
+    ru: {
+        badge: "Personal Game Deals Assistant",
+        mainTitle: "Game Deals Assistant",
+        subtitle: "Скидки, избранное, моя библиотека и отметка уже купленных игр.",
+
+        supportTitle: "Поддержать автора",
+        supportText: "Если проект оказался полезным, можешь поддержать развитие.",
+        supportButton: "Показать реквизиты",
+        supportModalText: "Эти реквизиты можно заменить в файле app/static/index.html.",
+
+        allDeals: "Все скидки",
+        discount90: "90%+",
+        discount75: "75%+",
+        under5: "Under $5",
+        free: "Free",
+
+        searchGame: "Поиск игры",
+        searchPlaceholder: "Например: Witcher",
+        minDiscount: "Минимальная скидка",
+        maxDiscount: "Максимальная скидка",
+        source: "Источник",
+        sort: "Сортировка",
+        sortSavings: "Сначала большая скидка",
+        sortPrice: "Сначала дешевле",
+        sortTitle: "По названию",
+        sortStore: "По магазину",
+        hideOwned: "Скрыть уже купленные",
+        findDeals: "Найти скидки",
+
+        steamLibrary: "Подключить Steam",
+        steamText: "Введи SteamID64. Для синхронизации нужен STEAM_API_KEY в переменных окружения. Без ключа можно пользоваться ручным добавлением игр.",
+        manualLibrary: "Добавить купленную игру",
+        manualText: "Для Epic и других платформ пока можно добавлять игры вручную.",
+        manualTitlePlaceholder: "Название игры",
+        manualGameIdPlaceholder: "App ID optional",
+
+        syncSteam: "Sync Steam Library",
+        add: "Добавить",
+
+        deals: "Скидки",
+        myLibrary: "Моя библиотека",
+        favorites: "Избранное",
+
+        alreadyOwned: "Уже куплено",
+        store: "Магазин",
+        price: "Цена",
+        discount: "Скидка",
+        open: "Открыть",
+        addFavorite: "В избранное",
+        addFavoriteAnyway: "В избранное всё равно",
+        delete: "Удалить",
+
+        platform: "Платформа",
+        gameId: "ID",
+        playtime: "Время игры",
+        targetPrice: "Целевая цена",
+        notSet: "не указана",
+
+        cardKaspi: "Kaspi / карта",
+        receiver: "Получатель",
+        telegram: "Telegram",
+        contactMe: "Связаться со мной",
+        comment: "Комментарий",
+
+        noDeals: "Ничего не найдено. Попробуй уменьшить минимальную скидку, отключить «Скрыть уже купленные» или выбрать другой источник.",
+        noFavorites: "Избранных игр пока нет.",
+        noOwnedGames: "Купленных игр пока нет.",
+        enterTitle: "Введи название игры.",
+        enterSteamId: "Введи SteamID64.",
+        syncLoading: "Синхронизация...",
+        syncDone: "Готово. Синхронизировано игр:",
+        games: "игр",
+
+        errorSources: "Ошибка загрузки источников",
+        errorDeals: "Ошибка загрузки скидок",
+        errorFavorites: "Ошибка загрузки избранного",
+        errorLibrary: "Ошибка загрузки библиотеки",
+        errorSaveFavorite: "Ошибка сохранения избранного",
+        errorAddGame: "Ошибка добавления игры",
+        frontendNotArray: "Frontend получил не список игр. Проверь /api/deals."
+    },
+
+    en: {
+        badge: "Personal Game Deals Assistant",
+        mainTitle: "Game Deals Assistant",
+        subtitle: "Discounts, favorites, personal library, and already owned game marks.",
+
+        supportTitle: "Support the Author",
+        supportText: "If this project was useful, you can support its development.",
+        supportButton: "Show support details",
+        supportModalText: "You can replace these support details in app/static/index.html.",
+
+        allDeals: "All deals",
+        discount90: "90%+",
+        discount75: "75%+",
+        under5: "Under $5",
+        free: "Free",
+
+        searchGame: "Search game",
+        searchPlaceholder: "For example: Witcher",
+        minDiscount: "Minimum discount",
+        maxDiscount: "Maximum discount",
+        source: "Source",
+        sort: "Sorting",
+        sortSavings: "Highest discount first",
+        sortPrice: "Lowest price first",
+        sortTitle: "By title",
+        sortStore: "By store",
+        hideOwned: "Hide already owned",
+        findDeals: "Find deals",
+
+        steamLibrary: "Connect Steam",
+        steamText: "Enter your SteamID64. Steam Library Sync requires STEAM_API_KEY in environment variables. Without a key, you can still add owned games manually.",
+        manualLibrary: "Add owned game",
+        manualText: "For Epic and other platforms, games can currently be added manually.",
+        manualTitlePlaceholder: "Game title",
+        manualGameIdPlaceholder: "App ID optional",
+
+        syncSteam: "Sync Steam Library",
+        add: "Add",
+
+        deals: "Deals",
+        myLibrary: "My Library",
+        favorites: "Favorites",
+
+        alreadyOwned: "Already owned",
+        store: "Store",
+        price: "Price",
+        discount: "Discount",
+        open: "Open",
+        addFavorite: "Add to favorites",
+        addFavoriteAnyway: "Add anyway",
+        delete: "Delete",
+
+        platform: "Platform",
+        gameId: "ID",
+        playtime: "Playtime",
+        targetPrice: "Target price",
+        notSet: "not set",
+
+        cardKaspi: "Kaspi / card",
+        receiver: "Receiver",
+        telegram: "Telegram",
+        contactMe: "Contact me",
+        comment: "Comment",
+
+        noDeals: "Nothing found. Try lowering the minimum discount, disabling “Hide already owned”, or choosing another source.",
+        noFavorites: "No favorite games yet.",
+        noOwnedGames: "No owned games yet.",
+        enterTitle: "Enter a game title.",
+        enterSteamId: "Enter SteamID64.",
+        syncLoading: "Syncing...",
+        syncDone: "Done. Synced games:",
+        games: "games",
+
+        errorSources: "Source loading error",
+        errorDeals: "Deals loading error",
+        errorFavorites: "Favorites loading error",
+        errorLibrary: "Library loading error",
+        errorSaveFavorite: "Favorite saving error",
+        errorAddGame: "Game adding error",
+        frontendNotArray: "Frontend received something that is not a game list. Check /api/deals."
+    }
+};
+
+function t(key) {
+    return translations[currentLanguage][key] || key;
+}
+
+function applyLanguage() {
+    document.querySelectorAll("[data-i18n]").forEach(element => {
+        const key = element.dataset.i18n;
+        element.textContent = t(key);
+    });
+
+    document.querySelectorAll("[data-i18n-placeholder]").forEach(element => {
+        const key = element.dataset.i18nPlaceholder;
+        element.placeholder = t(key);
+    });
+
+    const langToggleBtn = document.getElementById("langToggleBtn");
+
+    if (langToggleBtn) {
+        langToggleBtn.textContent = currentLanguage === "ru" ? "EN" : "RU";
+    }
+
+    document.documentElement.lang = currentLanguage;
+}
+
 const dealsGrid = document.getElementById("dealsGrid");
 const favoritesGrid = document.getElementById("favoritesGrid");
 const ownedGrid = document.getElementById("ownedGrid");
@@ -67,7 +259,7 @@ async function loadStores() {
             storeSelect.appendChild(option);
         });
     } catch (error) {
-        showError(`Ошибка загрузки источников: ${error.message}`);
+        showError(`${t("errorSources")}: ${error.message}`);
     }
 }
 
@@ -98,19 +290,18 @@ function renderDeals(deals) {
     dealsGrid.innerHTML = "";
 
     if (!Array.isArray(deals)) {
-        showError("Frontend получил не список игр. Проверь /api/deals.");
-        dealsCount.textContent = "0 найдено";
+        showError(t("frontendNotArray"));
+        dealsCount.textContent = `0 ${t("games")}`;
         return;
     }
 
     const sortedDeals = sortDeals(deals);
-    dealsCount.textContent = `${sortedDeals.length} найдено`;
+    dealsCount.textContent = `${sortedDeals.length} ${t("games")}`;
 
     if (sortedDeals.length === 0) {
         dealsGrid.innerHTML = `
             <div class="empty-state">
-                Ничего не найдено. Попробуй уменьшить минимальную скидку,
-                отключить "Скрыть уже купленные" или выбрать другой источник.
+                ${t("noDeals")}
             </div>
         `;
         return;
@@ -132,20 +323,20 @@ function renderDeals(deals) {
         card.innerHTML = `
             <img src="${thumb}" alt="">
             <div class="card-body">
-                ${owned ? `<span class="owned-badge">Уже куплено</span>` : ""}
+                ${owned ? `<span class="owned-badge">${t("alreadyOwned")}</span>` : ""}
                 <h3>${title}</h3>
 
                 <div class="meta">
-                    <div>Магазин: ${storeName}</div>
-                    <div>Цена: <s>${normalPrice}</s> → <span class="price">${salePrice}</span></div>
-                    <div class="discount">Скидка: ${savings}%</div>
+                    <div>${t("store")}: ${storeName}</div>
+                    <div>${t("price")}: <s>${normalPrice}</s> → <span class="price">${salePrice}</span></div>
+                    <div class="discount">${t("discount")}: ${savings}%</div>
                 </div>
 
                 <input class="target-input" type="number" min="0" step="0.01" placeholder="Target price for alert">
 
                 <div class="card-actions">
-                    <a href="${dealUrl}" target="_blank">Открыть</a>
-                    <button>${owned ? "В избранное всё равно" : "В избранное"}</button>
+                    <a href="${dealUrl}" target="_blank">${t("open")}</a>
+                    <button>${owned ? t("addFavoriteAnyway") : t("addFavorite")}</button>
                 </div>
             </div>
         `;
@@ -170,7 +361,7 @@ function renderDeals(deals) {
 
                 await loadFavorites();
             } catch (error) {
-                showError(`Ошибка сохранения избранного: ${error.message}`);
+                showError(`${t("errorSaveFavorite")}: ${error.message}`);
             }
         });
 
@@ -180,7 +371,7 @@ function renderDeals(deals) {
 
 async function loadDeals(extra = {}) {
     showError("");
-    dealsGrid.innerHTML = "<p>Загрузка...</p>";
+    dealsGrid.innerHTML = "<p>Loading...</p>";
 
     const minDiscount = extra.minDiscount ?? document.getElementById("minDiscount").value;
     const maxDiscount = extra.maxDiscount ?? document.getElementById("maxDiscount").value;
@@ -216,8 +407,8 @@ async function loadDeals(extra = {}) {
         renderDeals(lastDeals);
     } catch (error) {
         dealsGrid.innerHTML = "";
-        dealsCount.textContent = "0 найдено";
-        showError(`Ошибка загрузки скидок: ${error.message}`);
+        dealsCount.textContent = `0 ${t("games")}`;
+        showError(`${t("errorDeals")}: ${error.message}`);
         console.error(error);
     }
 }
@@ -228,7 +419,7 @@ async function loadFavorites() {
         favoritesGrid.innerHTML = "";
 
         if (!favorites.length) {
-            favoritesGrid.innerHTML = "<p class='empty-state'>Избранных игр пока нет.</p>";
+            favoritesGrid.innerHTML = `<p class="empty-state">${t("noFavorites")}</p>`;
             return;
         }
 
@@ -241,15 +432,15 @@ async function loadFavorites() {
                     <h3>${fav.title}</h3>
 
                     <div class="meta">
-                        <div>Магазин: ${fav.store_name}</div>
-                        <div>Цена: <s>${money(fav.normal_price)}</s> → <span class="price">${money(fav.sale_price)}</span></div>
-                        <div class="discount">Скидка: ${Number(fav.savings || 0).toFixed(2)}%</div>
-                        <div>Target price: ${fav.target_price ? money(fav.target_price) : "not set"}</div>
+                        <div>${t("store")}: ${fav.store_name}</div>
+                        <div>${t("price")}: <s>${money(fav.normal_price)}</s> → <span class="price">${money(fav.sale_price)}</span></div>
+                        <div class="discount">${t("discount")}: ${Number(fav.savings || 0).toFixed(2)}%</div>
+                        <div>${t("targetPrice")}: ${fav.target_price ? money(fav.target_price) : t("notSet")}</div>
                     </div>
 
                     <div class="card-actions">
-                        <a href="${fav.deal_url}" target="_blank">Открыть</a>
-                        <button>Удалить</button>
+                        <a href="${fav.deal_url}" target="_blank">${t("open")}</a>
+                        <button>${t("delete")}</button>
                     </div>
                 </div>
             `;
@@ -262,7 +453,7 @@ async function loadFavorites() {
             favoritesGrid.appendChild(card);
         });
     } catch (error) {
-        showError(`Ошибка загрузки избранного: ${error.message}`);
+        showError(`${t("errorFavorites")}: ${error.message}`);
     }
 }
 
@@ -270,10 +461,10 @@ async function loadOwnedGames() {
     try {
         const games = await api("/api/owned-games");
         ownedGrid.innerHTML = "";
-        ownedCount.textContent = `${games.length} игр`;
+        ownedCount.textContent = `${games.length} ${t("games")}`;
 
         if (!games.length) {
-            ownedGrid.innerHTML = "<p class='empty-state'>Купленных игр пока нет.</p>";
+            ownedGrid.innerHTML = `<p class="empty-state">${t("noOwnedGames")}</p>`;
             return;
         }
 
@@ -283,15 +474,15 @@ async function loadOwnedGames() {
 
             card.innerHTML = `
                 <div class="card-body">
-                    <span class="owned-badge">Уже куплено</span>
+                    <span class="owned-badge">${t("alreadyOwned")}</span>
                     <h3>${game.title || game.platform_game_id}</h3>
                     <div class="meta">
-                        <div>Платформа: ${game.platform}</div>
-                        <div>ID: ${game.platform_game_id}</div>
-                        <div>Playtime: ${game.playtime_minutes || 0} min</div>
+                        <div>${t("platform")}: ${game.platform}</div>
+                        <div>${t("gameId")}: ${game.platform_game_id}</div>
+                        <div>${t("playtime")}: ${game.playtime_minutes || 0} min</div>
                     </div>
                     <div class="card-actions">
-                        <button>Удалить</button>
+                        <button>${t("delete")}</button>
                     </div>
                 </div>
             `;
@@ -305,7 +496,7 @@ async function loadOwnedGames() {
             ownedGrid.appendChild(card);
         });
     } catch (error) {
-        showError(`Ошибка загрузки библиотеки: ${error.message}`);
+        showError(`${t("errorLibrary")}: ${error.message}`);
     }
 }
 
@@ -315,7 +506,7 @@ async function addManualOwnedGame() {
     const platformGameId = document.getElementById("manualGameId").value.trim();
 
     if (!title) {
-        showError("Введи название игры.");
+        showError(t("enterTitle"));
         return;
     }
 
@@ -335,7 +526,7 @@ async function addManualOwnedGame() {
         await loadOwnedGames();
         await loadDeals();
     } catch (error) {
-        showError(`Ошибка добавления игры: ${error.message}`);
+        showError(`${t("errorAddGame")}: ${error.message}`);
     }
 }
 
@@ -343,11 +534,11 @@ async function syncSteamLibrary() {
     const steamId = document.getElementById("steamIdInput").value.trim();
 
     if (!steamId) {
-        showError("Введи SteamID64.");
+        showError(t("enterSteamId"));
         return;
     }
 
-    steamSyncStatus.textContent = "Синхронизация...";
+    steamSyncStatus.textContent = t("syncLoading");
     showError("");
 
     try {
@@ -356,7 +547,7 @@ async function syncSteamLibrary() {
             body: JSON.stringify({ steam_id: steamId })
         });
 
-        steamSyncStatus.textContent = `Готово. Синхронизировано игр: ${result.games_count}`;
+        steamSyncStatus.textContent = `${t("syncDone")} ${result.games_count}`;
         await loadOwnedGames();
         await loadDeals();
     } catch (error) {
@@ -406,6 +597,16 @@ document.getElementById("hideOwned").addEventListener("change", () => loadDeals(
 document.getElementById("manualAddBtn").addEventListener("click", addManualOwnedGame);
 document.getElementById("syncSteamBtn").addEventListener("click", syncSteamLibrary);
 
+document.getElementById("langToggleBtn").addEventListener("click", () => {
+    currentLanguage = currentLanguage === "ru" ? "en" : "ru";
+    localStorage.setItem("language", currentLanguage);
+
+    applyLanguage();
+    renderDeals(lastDeals);
+    loadFavorites();
+    loadOwnedGames();
+});
+
 document.querySelectorAll("[data-preset]").forEach(button => {
     button.addEventListener("click", () => applyPreset(button.dataset.preset));
 });
@@ -418,6 +619,8 @@ document.getElementById("titleSearch").addEventListener("keydown", event => {
 
 (async function init() {
     setupSupportModal();
+    applyLanguage();
+
     await loadStores();
     await loadDeals();
     await loadFavorites();
