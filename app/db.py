@@ -142,15 +142,17 @@ def list_favorites(user_id: int) -> List[Dict]:
         c.close()
 
 
-def delete_favorite(fid: int, user_id: int) -> None:
-    """Delete a favorite"""
+def delete_favorite(fid: int, user_id: int) -> bool:
+    """Delete a favorite. Returns True if a row was actually deleted."""
     c = get_connection()
     try:
-        c.execute(
+        cur = c.cursor()
+        cur.execute(
             "DELETE FROM favorites WHERE id=? AND user_id=?",
             (fid, user_id)
         )
         c.commit()
+        return cur.rowcount > 0
     finally:
         c.close()
 
@@ -238,15 +240,17 @@ def list_owned_games(user_id: int) -> List[Dict]:
         c.close()
 
 
-def delete_owned_game(user_id: int, owned_game_id: int) -> None:
-    """Delete an owned game entry"""
+def delete_owned_game(user_id: int, owned_game_id: int) -> bool:
+    """Delete an owned game entry. Returns True if a row was actually deleted."""
     c = get_connection()
     try:
-        c.execute(
+        cur = c.cursor()
+        cur.execute(
             "DELETE FROM owned_games WHERE id=? AND user_id=?",
             (owned_game_id, user_id)
         )
         c.commit()
+        return cur.rowcount > 0
     finally:
         c.close()
 

@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -17,10 +18,23 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize database and demo user on startup (lifespan replaces deprecated on_event)."""
+    try:
+        init_db()
+        get_or_create_demo_user()
+        logger.info("Application startup completed successfully")
+    except Exception as e:
+        logger.error(f"Startup error: {e}")
+        raise
+    yield
+
 app = FastAPI(
     title="Game Deals Assistant",
     description="Personal Game Deals Assistant - Track game discounts, favorites, and your library",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Add CORS middleware
@@ -62,18 +76,6 @@ class SteamSyncRequest(BaseModel):
     """Model for Steam library sync request"""
     steam_id: str = Field(..., min_length=1, max_length=50)
 
-@app.on_event("startup")
-def startup():
-    """Initialize database and demo user on startup"""
-    try:
-        init_db()
-        get_or_create_demo_user()
-        logger.info("Application startup completed successfully")
-    except Exception as e:
-        logger.error(f"Startup error: {e}")
-        raise
-
-
 @app.get("/")
 def index():
     """Serve the main HTML page"""
@@ -102,24 +104,30 @@ def stores() -> dict:
     return {"featured": featured, "all": featured + cs}
 
 def mark_owned(deals: List[dict], user_id: int, hide_owned: bool = False) -> List[dict]:
-    """Mark deals as owned and optionally hide them"""
-    keys = owned_game_keys(user_id)
-    titles = {(g.get("title") or "").strip().lower() for g in list_owned_games(user_id) if g.get("title")}
+    """Mark deals as owned and optionally hide them."""
+    # Bug fix: was calling list_owned_games twice (once inside owned_game_keys, once directly).
+    # Now we fetch once and build both keys and titles from the same result.
+    all_owned = list_owned_games(user_id)
+    keys: Set[Tuple[str, str]] = {
+        (g["platform"], str(g["platform_game_id"]).lower())
+        for g in all_owned if g.get("platform_game_id")
+    }
+    titles = {(g.get("title") or "").strip().lower() for g in all_owned if g.get("title")}
     out = []
-    
+
     for d in deals:
         store = (d.get("store_name") or "").lower()
         platform = "steam" if "steam" in store or d.get("source") == "steam" else "unknown"
         gid = str(d.get("platform_game_id") or d.get("steam_app_id") or "").lower()
         title = (d.get("title") or "").strip().lower()
-        
+
         owned = (gid and (platform, gid) in keys) or (title and title in titles)
         d["owned"] = bool(owned)
-        
+
         if hide_owned and owned:
             continue
         out.append(d)
-    
+
     return out
 
 
@@ -198,9 +206,13 @@ def favorite_delete(favorite_id: int):
     """Delete a favorite deal"""
     u = get_or_create_demo_user()
     try:
-        delete_favorite(favorite_id, u["id"])
+        deleted = delete_favorite(favorite_id, u["id"])
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Favorite not found.")
         logger.info(f"Favorite deleted: {favorite_id}")
         return {"status": "deleted"}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error deleting favorite: {e}")
         raise HTTPException(status_code=500, detail="Error deleting favorite")
@@ -246,9 +258,13 @@ def remove_owned_game(owned_game_id: int):
     """Remove an owned game"""
     u = get_or_create_demo_user()
     try:
-        delete_owned_game(u["id"], owned_game_id)
+        deleted = delete_owned_game(u["id"], owned_game_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Owned game not found.")
         logger.info(f"Owned game deleted: {owned_game_id}")
         return {"status": "deleted"}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error deleting owned game: {e}")
         raise HTTPException(status_code=500, detail="Error deleting owned game")
@@ -283,4 +299,3 @@ def sync_steam_library(p: SteamSyncRequest):
     except Exception as e:
         logger.error(f"Unexpected error during Steam sync: {e}")
         raise HTTPException(status_code=500, detail="Internal server error during Steam sync")
-
