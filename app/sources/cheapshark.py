@@ -1,28 +1,25 @@
 import requests
-import logging
-from typing import List, Dict, Optional
-
-logger = logging.getLogger(__name__)
 
 BASE_URL = "https://www.cheapshark.com/api/1.0"
 
 
-def fetch_stores() -> List[Dict]:
-    """Fetch all active stores from CheapShark"""
-    try:
-        r = requests.get(f"{BASE_URL}/stores", timeout=20)
-        r.raise_for_status()
-        stores = r.json()
-        result = [
-            {"store_id": str(s.get("storeID")), "store_name": s.get("storeName")}
-            for s in stores
-            if s.get("isActive") in (1, "1")
-        ]
-        logger.info(f"Fetched {len(result)} stores from CheapShark")
-        return result
-    except requests.RequestException as e:
-        logger.error(f"Error fetching CheapShark stores: {e}")
-        raise
+def fetch_stores():
+    response = requests.get(f"{BASE_URL}/stores", timeout=20)
+    response.raise_for_status()
+
+    stores = response.json()
+    active_stores = []
+
+    for store in stores:
+        is_active = store.get("isActive")
+
+        if is_active == 1 or is_active == "1":
+            active_stores.append({
+                "store_id": str(store.get("storeID")),
+                "store_name": store.get("storeName"),
+            })
+
+    return active_stores
 
 
 def fetch_deals(

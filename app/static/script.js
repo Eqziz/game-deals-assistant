@@ -176,18 +176,6 @@ function t(key) {
     return translations[currentLanguage][key] || key;
 }
 
-// Bug fix: escape HTML special characters before injecting into innerHTML
-// Prevents XSS if game titles/store names from external APIs contain < > " & '
-function escapeHtml(str) {
-    if (str == null) return "";
-    return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
-}
-
 function applyLanguage() {
     document.querySelectorAll("[data-i18n]").forEach(element => {
         const key = element.dataset.i18n;
@@ -212,7 +200,6 @@ const dealsGrid = document.getElementById("dealsGrid");
 const loadMoreBtn = document.getElementById("loadMoreBtn");
 const favoritesGrid = document.getElementById("favoritesGrid");
 const ownedGrid = document.getElementById("ownedGrid");
-const loadMoreBtn = document.getElementById("loadMoreBtn");
 const storeSelect = document.getElementById("storeSelect");
 const dealsCount = document.getElementById("dealsCount");
 const ownedCount = document.getElementById("ownedCount");
@@ -228,54 +215,31 @@ let nextDealsPage = null;
 let currentDealsExtra = {};
 
 async function api(path, options = {}) {
-    try {
-        const response = await fetch(path, {
-            headers: {
-                "Content-Type": "application/json",
-                ...(options.headers || {})
-            },
-            ...options
-        });
+    const response = await fetch(path, {
+        headers: {
+            "Content-Type": "application/json",
+            ...(options.headers || {})
+        },
+        ...options
+    });
 
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({}));
-            throw new Error(error.detail || `Request failed with status ${response.status}`);
-        }
-
-        return response.json();
-    } catch (error) {
-        console.error(`API Error (${path}):`, error);
-        throw error;
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.detail || "Request failed");
     }
+
+    return response.json();
 }
 
 function showError(message) {
     if (errorBox) {
         errorBox.textContent = message || "";
-        if (message) {
-            console.error("User Error:", message);
-        }
     }
 }
 
 function money(value) {
     const number = Number(value);
     return Number.isNaN(number) ? "$0.00" : `$${number.toFixed(2)}`;
-}
-
-function validateDiscountRange(min, max) {
-    const minNum = parseInt(min) || 0;
-    const maxNum = parseInt(max) || 100;
-    
-    if (minNum < 0 || maxNum > 100) {
-        return false;
-    }
-    
-    if (minNum > maxNum) {
-        return false;
-    }
-    
-    return true;
 }
 
 function setupSupportModal() {
@@ -320,11 +284,17 @@ function sortDeals(deals) {
 
     if (sortValue === "savings") {
         sorted.sort((a, b) => Number(b.savings) - Number(a.savings));
-    } else if (sortValue === "price") {
+    }
+
+    if (sortValue === "price") {
         sorted.sort((a, b) => Number(a.sale_price) - Number(b.sale_price));
-    } else if (sortValue === "title") {
+    }
+
+    if (sortValue === "title") {
         sorted.sort((a, b) => String(a.title || "").localeCompare(String(b.title || "")));
-    } else if (sortValue === "store") {
+    }
+
+    if (sortValue === "store") {
         sorted.sort((a, b) => String(a.store_name || "").localeCompare(String(b.store_name || "")));
     }
 
@@ -337,6 +307,7 @@ function renderDeals(deals) {
     if (!Array.isArray(deals)) {
         showError(t("frontendNotArray"));
         dealsCount.textContent = `0 ${t("games")}`;
+        updateLoadMoreButton();
         return;
     }
 
@@ -349,6 +320,7 @@ function renderDeals(deals) {
                 ${t("noDeals")}
             </div>
         `;
+        updateLoadMoreButton();
         return;
     }
 
@@ -366,22 +338,22 @@ function renderDeals(deals) {
         const owned = Boolean(deal.owned);
 
         card.innerHTML = `
-            <img src="${escapeHtml(thumb)}" alt="">
+            <img src="${thumb}" alt="">
             <div class="card-body">
-                ${owned ? `<span class="owned-badge">${escapeHtml(t("alreadyOwned"))}</span>` : ""}
-                <h3>${escapeHtml(title)}</h3>
+                ${owned ? `<span class="owned-badge">${t("alreadyOwned")}</span>` : ""}
+                <h3>${title}</h3>
 
                 <div class="meta">
-                    <div>${escapeHtml(t("store"))}: ${escapeHtml(storeName)}</div>
-                    <div>${escapeHtml(t("price"))}: <s>${escapeHtml(normalPrice)}</s> → <span class="price">${escapeHtml(salePrice)}</span></div>
-                    <div class="discount">${escapeHtml(t("discount"))}: ${escapeHtml(savings)}%</div>
+                    <div>${t("store")}: ${storeName}</div>
+                    <div>${t("price")}: <s>${normalPrice}</s> → <span class="price">${salePrice}</span></div>
+                    <div class="discount">${t("discount")}: ${savings}%</div>
                 </div>
 
                 <input class="target-input" type="number" min="0" step="0.01" placeholder="Target price for alert">
 
                 <div class="card-actions">
-                    <a href="${escapeHtml(dealUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(t("open"))}</a>
-                    <button>${owned ? escapeHtml(t("addFavoriteAnyway")) : escapeHtml(t("addFavorite"))}</button>
+                    <a href="${dealUrl}" target="_blank">${t("open")}</a>
+                    <button>${owned ? t("addFavoriteAnyway") : t("addFavorite")}</button>
                 </div>
             </div>
         `;
@@ -412,6 +384,8 @@ function renderDeals(deals) {
 
         dealsGrid.appendChild(card);
     });
+
+    updateLoadMoreButton();
 }
 
 async function loadDeals(extra = {}, append = false) {
@@ -422,6 +396,13 @@ async function loadDeals(extra = {}, append = false) {
         lastDeals = [];
         nextDealsPage = null;
         currentDealsExtra = extra;
+        updateLoadMoreButton();
+    }
+
+    const pageToLoad = append ? nextDealsPage : 0;
+
+    if (pageToLoad === null) {
+        return;
     }
 
     const minDiscount = extra.minDiscount ?? document.getElementById("minDiscount").value;
@@ -430,14 +411,7 @@ async function loadDeals(extra = {}, append = false) {
     const title = document.getElementById("titleSearch").value.trim();
     const hideOwned = document.getElementById("hideOwned").checked;
 
-    const pageToLoad = append ? nextDealsPage : 0;
-
-    if (pageToLoad === null) {
-        return;
-    }
-
     const params = new URLSearchParams();
-
     params.append("min_discount", minDiscount);
     params.append("max_discount", maxDiscount);
     params.append("hide_owned", hideOwned ? "true" : "false");
@@ -478,7 +452,6 @@ async function loadDeals(extra = {}, append = false) {
             : newDeals;
 
         renderDeals(lastDeals);
-        updateLoadMoreButton();
     } catch (error) {
         if (!append) {
             dealsGrid.innerHTML = "";
@@ -487,6 +460,7 @@ async function loadDeals(extra = {}, append = false) {
 
         showError(`${t("errorDeals")}: ${error.message}`);
         console.error(error);
+        updateLoadMoreButton();
     }
 }
 
@@ -537,29 +511,25 @@ async function loadFavorites() {
 
             card.innerHTML = `
                 <div class="card-body">
-                    <h3>${escapeHtml(fav.title)}</h3>
+                    <h3>${fav.title}</h3>
 
                     <div class="meta">
-                        <div>${escapeHtml(t("store"))}: ${escapeHtml(fav.store_name)}</div>
-                        <div>${escapeHtml(t("price"))}: <s>${escapeHtml(money(fav.normal_price))}</s> → <span class="price">${escapeHtml(money(fav.sale_price))}</span></div>
-                        <div class="discount">${escapeHtml(t("discount"))}: ${Number(fav.savings || 0).toFixed(2)}%</div>
-                        <div>${escapeHtml(t("targetPrice"))}: ${fav.target_price ? escapeHtml(money(fav.target_price)) : escapeHtml(t("notSet"))}</div>
+                        <div>${t("store")}: ${fav.store_name}</div>
+                        <div>${t("price")}: <s>${money(fav.normal_price)}</s> → <span class="price">${money(fav.sale_price)}</span></div>
+                        <div class="discount">${t("discount")}: ${Number(fav.savings || 0).toFixed(2)}%</div>
+                        <div>${t("targetPrice")}: ${fav.target_price ? money(fav.target_price) : t("notSet")}</div>
                     </div>
 
                     <div class="card-actions">
-                        <a href="${escapeHtml(fav.deal_url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(t("open"))}</a>
-                        <button>${escapeHtml(t("delete"))}</button>
+                        <a href="${fav.deal_url}" target="_blank">${t("open")}</a>
+                        <button>${t("delete")}</button>
                     </div>
                 </div>
             `;
 
             card.querySelector("button").addEventListener("click", async () => {
-                try {
-                    await api(`/api/favorites/${fav.id}`, { method: "DELETE" });
-                    await loadFavorites();
-                } catch (error) {
-                    showError(`${t("errorFavorites")}: ${error.message}`);
-                }
+                await api(`/api/favorites/${fav.id}`, { method: "DELETE" });
+                await loadFavorites();
             });
 
             favoritesGrid.appendChild(card);
@@ -586,29 +556,25 @@ async function loadOwnedGames() {
 
             card.innerHTML = `
                 <div class="card-body">
-                    <span class="owned-badge">${escapeHtml(t("alreadyOwned"))}</span>
-                    <h3>${escapeHtml(game.title || game.platform_game_id)}</h3>
+                    <span class="owned-badge">${t("alreadyOwned")}</span>
+                    <h3>${game.title || game.platform_game_id}</h3>
 
                     <div class="meta">
-                        <div>${escapeHtml(t("platform"))}: ${escapeHtml(game.platform)}</div>
-                        <div>${escapeHtml(t("gameId"))}: ${escapeHtml(game.platform_game_id)}</div>
-                        <div>${escapeHtml(t("playtime"))}: ${Number(game.playtime_minutes || 0)} min</div>
+                        <div>${t("platform")}: ${game.platform}</div>
+                        <div>${t("gameId")}: ${game.platform_game_id}</div>
+                        <div>${t("playtime")}: ${game.playtime_minutes || 0} min</div>
                     </div>
 
                     <div class="card-actions">
-                        <button>${escapeHtml(t("delete"))}</button>
+                        <button>${t("delete")}</button>
                     </div>
                 </div>
             `;
 
             card.querySelector("button").addEventListener("click", async () => {
-                try {
-                    await api(`/api/owned-games/${game.id}`, { method: "DELETE" });
-                    await loadOwnedGames();
-                    await loadDeals();
-                } catch (error) {
-                    showError(`${t("errorLibrary")}: ${error.message}`);
-                }
+                await api(`/api/owned-games/${game.id}`, { method: "DELETE" });
+                await loadOwnedGames();
+                await loadDeals();
             });
 
             ownedGrid.appendChild(card);
@@ -747,6 +713,7 @@ if (langToggleBtn) {
         localStorage.setItem("language", currentLanguage);
 
         applyLanguage();
+        updateLoadMoreButton();
 
         if (Array.isArray(lastDeals)) {
             renderDeals(lastDeals);
@@ -782,7 +749,3 @@ if (titleSearch) {
     await loadFavorites();
     await loadOwnedGames();
 })();
-
-console.log("script.js loaded");
-console.log("Language button:", document.getElementById("langToggleBtn"));
-console.log("i18n elements:", document.querySelectorAll("[data-i18n]").length);
