@@ -43,7 +43,7 @@ Built with modern web technologies: **FastAPI**, **SQLite**, **HTML/CSS/JavaScri
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/game-deals-assistant.git
+   git clone https://github.com/Eqziz/game-deals-assistant.git
    cd game_deals_assistant
    ```
 
