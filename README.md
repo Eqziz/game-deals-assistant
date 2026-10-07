@@ -168,6 +168,7 @@ game_deals_assistant/
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/` | Serve main HTML |
+| GET | `/api/health` | Health check endpoint |
 | GET | `/api/me` | Get current user info |
 | GET | `/api/stores` | List available stores |
 | GET | `/api/deals` | Get filtered game deals |
@@ -192,6 +193,7 @@ game_deals_assistant/
 | POST | `/api/favorites` | Create favorite |
 | GET | `/api/favorites` | List favorites |
 | DELETE | `/api/favorites/{id}` | Delete favorite |
+| POST | `/api/favorites/delete-by-url` | Delete favorite by deal URL |
 
 ### Library Endpoints
 

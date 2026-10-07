@@ -44,6 +44,10 @@ jobs:
     - name: Verify database initialization
       run: |
         python -c "from app.db import init_db; init_db(); print('Database initialized successfully')"
+    
+    - name: Run automated test suite
+      run: |
+        pytest -v
 
   build:
     runs-on: ubuntu-latest

@@ -2,205 +2,405 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Game Deals Assistant</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22%20%220%22%20%22100%22%20%22100%22><text y=%22.9em%22 font-size=%2290%22>🎮</text></svg>">
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-    <header class="hero">
-        <div>
-            <p class="badge" data-i18n="badge">Personal Game Deals Assistant</p>
-            <h1 data-i18n="mainTitle">Game Deals Assistant</h1>
-            <p class="subtitle" data-i18n="subtitle">
-                Скидки, избранное, моя библиотека и отметка уже купленных игр.
-            </p>
+    <header class="navbar">
+        <div class="nav-brand">
+            <span class="brand-icon">🎮</span>
+            <div>
+                <div class="brand-title-wrap">
+                    <h1 class="brand-title">Game Deals Assistant</h1>
+                    <span class="brand-tag" data-i18n="badge">Pro Tracker</span>
+                </div>
+                <p class="brand-subtitle" data-i18n="subtitle">
+                    Скидки, избранное, моя библиотека и отметка уже купленных игр.
+                </p>
+            </div>
         </div>
 
-        <div class="support-box">
-            <button id="langToggleBtn" class="lang-btn">EN</button>
-
-            <p class="support-title" data-i18n="supportTitle">Поддержать автора</p>
-            <p class="support-text" data-i18n="supportText">
-                Если проект оказался полезным, можешь поддержать развитие.
-            </p>
-            <button id="supportBtn" data-i18n="supportButton">Показать реквизиты</button>
+        <div class="nav-actions">
+            <button id="langToggleBtn" class="pill-btn lang-btn" title="Switch language">
+                <span class="lang-flag">🌐</span>
+                <span id="langLabel">EN</span>
+            </button>
+            <button id="supportBtn" class="pill-btn support-btn" title="Поддержать автора">
+                <span>❤️</span>
+                <span data-i18n="supportButton">Поддержать</span>
+            </button>
         </div>
     </header>
 
-    <main>
-        <section class="panel">
-            <div class="quick-actions">
-                <button data-preset="all" data-i18n="allDeals">Все скидки</button>
-                <button data-preset="90" data-i18n="discount90">90%+</button>
-                <button data-preset="75" data-i18n="discount75">75%+</button>
-                <button data-preset="under5" data-i18n="under5">Under $5</button>
-                <button data-preset="free" data-i18n="free">Free</button>
-            </div>
+    <div class="tabs-bar">
+        <button class="tab-btn active" data-tab="deals">
+            <span class="tab-icon">🏷️</span>
+            <span data-i18n="dealsTab">Скидки</span>
+            <span id="dealsCountBadge" class="tab-count">0</span>
+        </button>
+        <button class="tab-btn" data-tab="favorites">
+            <span class="tab-icon">⭐</span>
+            <span data-i18n="favoritesTab">Избранное</span>
+            <span id="favCountBadge" class="tab-count">0</span>
+        </button>
+        <button class="tab-btn" data-tab="library">
+            <span class="tab-icon">📚</span>
+            <span data-i18n="libraryTab">Моя библиотека</span>
+            <span id="libraryCountBadge" class="tab-count">0</span>
+        </button>
+        <button class="tab-btn" data-tab="sync">
+            <span class="tab-icon">🔄</span>
+            <span data-i18n="syncTab">Синхронизация</span>
+        </button>
+    </div>
 
-            <div class="filters">
-                <label>
-                    <span data-i18n="searchGame">Поиск игры</span>
-                    <input
-                        id="titleSearch"
-                        type="text"
-                        placeholder="Например: Witcher"
-                        data-i18n-placeholder="searchPlaceholder"
-                    >
-                </label>
-
-                <label>
-                    <span data-i18n="minDiscount">Минимальная скидка</span>
-                    <input id="minDiscount" type="number" min="0" max="100" value="10">
-                </label>
-
-                <label>
-                    <span data-i18n="maxDiscount">Максимальная скидка</span>
-                    <input id="maxDiscount" type="number" min="0" max="100" value="100">
-                </label>
-
-                <label>
-                    <span data-i18n="source">Источник</span>
-                    <select id="storeSelect">
-                        <option value="steam_direct">Steam Direct</option>
-                    </select>
-                </label>
-
-                <label>
-                    <span data-i18n="sort">Сортировка</span>
-                    <select id="sortSelect">
-                        <option value="savings" data-i18n="sortSavings">Сначала большая скидка</option>
-                        <option value="price" data-i18n="sortPrice">Сначала дешевле</option>
-                        <option value="title" data-i18n="sortTitle">По названию</option>
-                        <option value="store" data-i18n="sortStore">По магазину</option>
-                    </select>
-                </label>
-
-                <label class="checkbox-label">
-                    <input id="hideOwned" type="checkbox">
-                    <span data-i18n="hideOwned">Скрыть уже купленные</span>
-                </label>
-
-                <button id="loadDealsBtn" data-i18n="findDeals">Найти скидки</button>
-            </div>
-
-            <p id="errorBox" class="error"></p>
-        </section>
-
-        <section class="library-section">
-            <div class="library-card">
-                <p class="badge">Steam Library</p>
-                <h2 data-i18n="steamLibrary">Подключить Steam</h2>
-                <p data-i18n="steamText">
-                    Введи SteamID64. Для синхронизации нужен STEAM_API_KEY в переменных окружения.
-                    Без ключа можно пользоваться ручным добавлением игр.
-                </p>
-
-                <div class="inline-form">
-                    <input id="steamIdInput" type="text" placeholder="SteamID64">
-                    <button id="syncSteamBtn" data-i18n="syncSteam">Sync Steam Library</button>
+    <main class="content-container">
+        <!-- TAB 1: DEALS -->
+        <section id="tab-deals" class="tab-pane active">
+            <div class="panel filter-panel">
+                <div class="presets-row">
+                    <span class="presets-label" data-i18n="presetsLabel">Быстрые фильтры:</span>
+                    <div class="quick-actions">
+                        <button class="preset-btn active" data-preset="all" data-i18n="allDeals">🔥 Все скидки</button>
+                        <button class="preset-btn" data-preset="90" data-i18n="discount90">💥 90%+</button>
+                        <button class="preset-btn" data-preset="75" data-i18n="discount75">⚡ 75%+</button>
+                        <button class="preset-btn" data-preset="under5" data-i18n="under5">💵 До $5</button>
+                        <button class="preset-btn" data-preset="free" data-i18n="free">🎁 Бесплатно</button>
+                    </div>
                 </div>
 
-                <p id="steamSyncStatus" class="muted"></p>
+                <div class="filters-grid">
+                    <div class="filter-field search-field">
+                        <label for="titleSearch" data-i18n="searchGame">Поиск игры</label>
+                        <div class="input-with-clear">
+                            <span class="input-icon">🔍</span>
+                            <input
+                                id="titleSearch"
+                                type="text"
+                                placeholder="Например: Witcher, Cyberpunk, Doom..."
+                                data-i18n-placeholder="searchPlaceholder"
+                                autocomplete="off"
+                            >
+                            <button id="clearSearchBtn" class="clear-btn hidden" title="Очистить">✕</button>
+                        </div>
+                    </div>
+
+                    <div class="filter-field">
+                        <label for="storeSelect" data-i18n="source">Магазин / Источник</label>
+                        <select id="storeSelect">
+                            <option value="cheapshark_all" data-i18n="allStores">Все PC магазины</option>
+                            <option value="steam_direct">Steam Direct (Официальный)</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-field">
+                        <label for="minDiscount" data-i18n="minDiscount">Мин. скидка (%)</label>
+                        <input id="minDiscount" type="number" min="0" max="100" value="10">
+                    </div>
+
+                    <div class="filter-field">
+                        <label for="maxDiscount" data-i18n="maxDiscount">Макс. скидка (%)</label>
+                        <input id="maxDiscount" type="number" min="0" max="100" value="100">
+                    </div>
+
+                    <div class="filter-field">
+                        <label for="sortSelect" data-i18n="sort">Сортировка</label>
+                        <select id="sortSelect">
+                            <option value="savings" data-i18n="sortSavings">Сначала большая скидка</option>
+                            <option value="price_asc" data-i18n="sortPriceAsc">Сначала дешевле</option>
+                            <option value="price_desc" data-i18n="sortPriceDesc">Сначала дороже</option>
+                            <option value="rating" data-i18n="sortRating">По рейтингу сделки</option>
+                            <option value="title" data-i18n="sortTitle">По названию (A-Z)</option>
+                            <option value="store" data-i18n="sortStore">По магазину</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-field checkbox-field">
+                        <label class="switch-label">
+                            <input id="hideOwned" type="checkbox">
+                            <span class="switch-slider"></span>
+                            <span class="switch-text" data-i18n="hideOwned">Скрыть купленные</span>
+                        </label>
+                    </div>
+
+                    <div class="filter-actions">
+                        <button id="loadDealsBtn" class="btn btn-primary" data-i18n="findDeals">Найти скидки</button>
+                        <button id="resetFiltersBtn" class="btn btn-ghost" title="Сбросить фильтры" data-i18n="resetFilters">Сброс</button>
+                    </div>
+                </div>
+
+                <div id="errorBox" class="alert-box error hidden"></div>
             </div>
 
-            <div class="library-card">
-                <p class="badge">Manual Library</p>
-                <h2 data-i18n="manualLibrary">Добавить купленную игру</h2>
-                <p data-i18n="manualText">
-                    Для Epic и других платформ пока можно добавлять игры вручную.
+            <div class="section-head">
+                <div class="head-title-wrap">
+                    <h2 data-i18n="dealsHeading">Каталог скидок</h2>
+                    <span id="dealsCount" class="count-tag">0 игр</span>
+                </div>
+                <div class="view-status" id="dealsStatusText"></div>
+            </div>
+
+            <div id="dealsGrid" class="grid deals-grid"></div>
+
+            <div class="pagination-wrap">
+                <button id="loadMoreBtn" class="btn btn-secondary load-more-btn hidden" data-i18n="loadMore">
+                    Показать ещё скидки
+                </button>
+            </div>
+        </section>
+
+        <!-- TAB 2: FAVORITES -->
+        <section id="tab-favorites" class="tab-pane">
+            <div class="section-head">
+                <div class="head-title-wrap">
+                    <h2 data-i18n="favoritesHeading">Моё избранное</h2>
+                    <span id="favoritesCount" class="count-tag">0 игр</span>
+                </div>
+                <p class="section-desc" data-i18n="favoritesDesc">
+                    Сохранённые скидки и отслеживание желаемой цены.
                 </p>
+            </div>
 
-                <div class="inline-form">
-                    <select id="manualPlatform">
-                        <option value="steam">Steam</option>
-                        <option value="epic">Epic Games</option>
-                        <option value="gog">GOG</option>
-                        <option value="other">Other</option>
-                    </select>
+            <div id="favoritesGrid" class="grid favorites-grid"></div>
+        </section>
 
-                    <input
-                        id="manualTitle"
-                        type="text"
-                        placeholder="Название игры"
-                        data-i18n-placeholder="manualTitlePlaceholder"
-                    >
-
-                    <input
-                        id="manualGameId"
-                        type="text"
-                        placeholder="App ID optional"
-                        data-i18n-placeholder="manualGameIdPlaceholder"
-                    >
-
-                    <button id="manualAddBtn" data-i18n="add">Добавить</button>
+        <!-- TAB 3: LIBRARY -->
+        <section id="tab-library" class="tab-pane">
+            <div class="section-head">
+                <div class="head-title-wrap">
+                    <h2 data-i18n="libraryHeading">Моя библиотека игр</h2>
+                    <span id="libraryCount" class="count-tag">0 игр</span>
+                </div>
+                <div class="library-actions-head">
+                    <button id="jumpToSyncBtn" class="btn btn-sm btn-secondary" data-i18n="addOrSyncBtn">
+                        ➕ Добавить игру / Синхронизация
+                    </button>
                 </div>
             </div>
+
+            <div class="library-filter-bar">
+                <div class="library-pills">
+                    <button class="lib-pill active" data-platform="all" data-i18n="platformAll">Все платформы</button>
+                    <button class="lib-pill" data-platform="steam">Steam</button>
+                    <button class="lib-pill" data-platform="epic">Epic Games</button>
+                    <button class="lib-pill" data-platform="gog">GOG</button>
+                    <button class="lib-pill" data-platform="other" data-i18n="platformOther">Другие</button>
+                </div>
+
+                <div class="input-with-clear lib-search-wrap">
+                    <span class="input-icon">🔍</span>
+                    <input id="librarySearchInput" type="text" placeholder="Поиск в библиотеке..." data-i18n-placeholder="searchLibraryPlaceholder">
+                </div>
+            </div>
+
+            <div id="ownedGrid" class="grid library-grid"></div>
         </section>
 
-        <section class="grid-section">
-            <div class="section-head">
-                <h2 data-i18n="deals">Скидки</h2>
-                <p id="dealsCount"></p>
-            </div>
-            <div id="dealsGrid" class="grid"></div>
-            <button id="loadMoreBtn" class="load-more-btn hidden" data-i18n="loadMore">
-        Ещё
-            </button>
-        </section>
+        <!-- TAB 4: SYNC & ADD -->
+        <section id="tab-sync" class="tab-pane">
+            <div class="library-section">
+                <!-- STEAM SYNC CARD -->
+                <div class="library-card">
+                    <div class="card-badge-row">
+                        <span class="badge steam-badge">Steam</span>
+                        <span class="badge-status" id="steamAccountStatus" data-i18n="autoSync">Автосинхронизация</span>
+                    </div>
+                    <h3 data-i18n="steamLibrary">Синхронизация со Steam</h3>
+                    <p class="card-text" data-i18n="steamText">
+                        Введи свой <strong>SteamID64</strong> (17-значный цифровой ID профиля Steam).
+                        Все игры с временем воспроизведения добавятся в библиотеку и будут автоматически помечаться как купленные.
+                    </p>
 
-        <section class="grid-section">
-            <div class="section-head">
-                <h2 data-i18n="myLibrary">Моя библиотека</h2>
-                <p id="ownedCount"></p>
-            </div>
-            <div id="ownedGrid" class="grid compact-grid"></div>
-        </section>
+                    <div class="inline-form">
+                        <input id="steamIdInput" type="text" placeholder="Например: 76561198000000000" autocomplete="off">
+                        <button id="syncSteamBtn" class="btn btn-primary" data-i18n="syncSteam">Синхронизировать</button>
+                    </div>
 
-        <section class="grid-section">
-            <div class="section-head">
-                <h2 data-i18n="favorites">Избранное</h2>
+                    <p id="steamSyncStatus" class="status-msg"></p>
+
+                    <div class="helper-box">
+                        <span class="helper-icon">💡</span>
+                        <span data-i18n="steamIdHelper">Как узнать SteamID64? Открой свой профиль Steam или используй сервис steamid.io. Профиль должен быть открытым.</span>
+                    </div>
+                </div>
+
+                <!-- MANUAL ADD CARD -->
+                <div class="library-card">
+                    <div class="card-badge-row">
+                        <span class="badge manual-badge">Manual Entry</span>
+                        <span class="badge-status" data-i18n="anyPlatform">Любые сервисы</span>
+                    </div>
+                    <h3 data-i18n="manualLibrary">Ручное добавление игры</h3>
+                    <p class="card-text" data-i18n="manualText">
+                        Добавляй купленные игры из Epic Games Store, GOG, EA App, VK Play или других источников.
+                    </p>
+
+                    <form id="manualAddForm" class="manual-form">
+                        <div class="form-row">
+                            <label>
+                                <span data-i18n="platformLabel">Платформа</span>
+                                <select id="manualPlatform">
+                                    <option value="steam">Steam</option>
+                                    <option value="epic">Epic Games</option>
+                                    <option value="gog">GOG</option>
+                                    <option value="ea">EA App</option>
+                                    <option value="ubisoft">Ubisoft Connect</option>
+                                    <option value="other">Другое / Other</option>
+                                </select>
+                            </label>
+
+                            <label class="flex-2">
+                                <span data-i18n="gameTitleLabel">Название игры *</span>
+                                <input
+                                    id="manualTitle"
+                                    type="text"
+                                    required
+                                    placeholder="Например: Red Dead Redemption 2"
+                                    data-i18n-placeholder="manualTitlePlaceholder"
+                                >
+                            </label>
+                        </div>
+
+                        <div class="form-row">
+                            <label>
+                                <span data-i18n="appIdOptional">App ID (опционально)</span>
+                                <input
+                                    id="manualGameId"
+                                    type="text"
+                                    placeholder="Например: 1174180"
+                                    data-i18n-placeholder="manualGameIdPlaceholder"
+                                >
+                            </label>
+
+                            <label>
+                                <span data-i18n="playtimeOptional">Сыграно (часов)</span>
+                                <input
+                                    id="manualPlaytime"
+                                    type="number"
+                                    min="0"
+                                    step="0.5"
+                                    placeholder="0"
+                                >
+                            </label>
+                        </div>
+
+                        <button id="manualAddBtn" type="submit" class="btn btn-primary btn-block" data-i18n="addGameBtn">
+                            ➕ Добавить в библиотеку
+                        </button>
+                    </form>
+                </div>
             </div>
-            <div id="favoritesGrid" class="grid"></div>
         </section>
     </main>
 
-    <div id="supportModal" class="modal hidden">
+    <!-- TARGET PRICE MODAL -->
+    <div id="targetPriceModal" class="modal hidden" role="dialog" aria-modal="true">
         <div class="modal-card">
             <div class="modal-head">
-                <h2 data-i18n="supportTitle">Поддержать автора</h2>
-                <button id="closeSupportBtn" class="icon-btn">×</button>
+                <div class="modal-title-wrap">
+                    <span class="modal-emoji">🔔</span>
+                    <div>
+                        <h3 data-i18n="targetPriceModalTitle">Оповещение о цене</h3>
+                        <p id="targetModalGameTitle" class="modal-game-name"></p>
+                    </div>
+                </div>
+                <button class="close-modal-btn" data-close="targetPriceModal">✕</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="price-comparison-box">
+                    <div>
+                        <span class="price-lbl" data-i18n="currentPrice">Текущая цена</span>
+                        <strong id="targetModalCurrentPrice" class="price-val">$0.00</strong>
+                    </div>
+                    <div>
+                        <span class="price-lbl" data-i18n="normalPrice">Обычная цена</span>
+                        <strong id="targetModalNormalPrice" class="price-val strike">$0.00</strong>
+                    </div>
+                </div>
+
+                <label class="modal-input-label">
+                    <span data-i18n="targetPriceInputLabel">Желаемая цена (в долларах $):</span>
+                    <input id="targetPriceInput" type="number" min="0" step="0.5" placeholder="Например: 4.99">
+                </label>
+                <p class="modal-hint" data-i18n="targetPriceHint">
+                    Игра будет добавлена в избранное с отслеживанием этой суммы.
+                </p>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-ghost" data-close="targetPriceModal" data-i18n="cancelBtn">Отмена</button>
+                <button id="saveTargetPriceBtn" class="btn btn-primary" data-i18n="saveAlertBtn">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SUPPORT AUTHOR MODAL -->
+    <div id="supportModal" class="modal hidden" role="dialog" aria-modal="true">
+        <div class="modal-card support-modal-card">
+            <div class="modal-head">
+                <div class="modal-title-wrap">
+                    <span class="modal-emoji">❤️</span>
+                    <div>
+                        <h3 data-i18n="supportTitle">Поддержать автора</h3>
+                        <p class="modal-subtext" data-i18n="supportText">
+                            Если проект оказался полезным, вы можете поддержать развитие.
+                        </p>
+                    </div>
+                </div>
+                <button id="closeSupportBtn" class="close-modal-btn">✕</button>
             </div>
 
             <div class="support-details">
-                <div>
-                    <span data-i18n="cardKaspi">Карта</span>
-                    <strong>5522 0427 0793 3461</strong>
+                <div class="support-item">
+                    <div class="support-info">
+                        <span class="support-lbl" data-i18n="cardKaspi">Банковская карта (Kaspi / Visa)</span>
+                        <strong class="support-val copyable" id="cardNumberVal">5522 0427 0793 3461</strong>
+                    </div>
+                    <button class="copy-btn" data-copy="5522 0427 0793 3461" title="Скопировать">
+                        📋 <span class="copy-text" data-i18n="copyBtn">Копировать</span>
+                    </button>
                 </div>
 
-                <div>
-                    <span data-i18n="receiver">Получатель</span>
-                    <strong>Nodir</strong>
+                <div class="support-item">
+                    <div class="support-info">
+                        <span class="support-lbl" data-i18n="receiver">Получатель</span>
+                        <strong class="support-val">Nodir</strong>
+                    </div>
                 </div>
 
-                <div>
-                    <span data-i18n="telegram">Telegram</span>
-                    <strong>@abc44441</strong>
+                <div class="support-item">
+                    <div class="support-info">
+                        <span class="support-lbl" data-i18n="telegram">Telegram</span>
+                        <strong class="support-val">
+                            <a href="https://t.me/abc44441" target="_blank" rel="noopener">@abc44441</a>
+                        </strong>
+                    </div>
+                    <button class="copy-btn" data-copy="@abc44441" title="Скопировать">
+                        📋 <span class="copy-text" data-i18n="copyBtn">Копировать</span>
+                    </button>
                 </div>
 
-                <div>
-                    <span data-i18n="contactMe">Связаться со мной</span>
-                    <strong>
-                        <a href="mailto:nodirmuhammedov_acer@outlook.com">nodirmuhammedov_acer@outlook.com</a>
-                    </strong>
-                </div>
-
-                <div>
-                    <span data-i18n="comment">Комментарий</span>
-                    <strong>Support Game Deals Assistant</strong>
+                <div class="support-item">
+                    <div class="support-info">
+                        <span class="support-lbl" data-i18n="contactMe">Email для связи</span>
+                        <strong class="support-val">
+                            <a href="mailto:nodirmuhammedov_acer@outlook.com">nodirmuhammedov_acer@outlook.com</a>
+                        </strong>
+                    </div>
+                    <button class="copy-btn" data-copy="nodirmuhammedov_acer@outlook.com" title="Скопировать">
+                        📋 <span class="copy-text" data-i18n="copyBtn">Копировать</span>
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="/static/script.js?v=3"></script>
+    <!-- TOAST NOTIFICATION CONTAINER -->
+    <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+    <script src="/static/script.js?v=4"></script>
 </body>
 </html>

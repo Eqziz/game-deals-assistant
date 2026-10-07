@@ -1,7 +1,11 @@
+import logging
+from contextlib import asynccontextmanager
+from typing import Optional
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 import requests
 
 from .db import (
@@ -10,6 +14,8 @@ from .db import (
     add_favorite,
     list_favorites,
     delete_favorite,
+    delete_favorite_by_url,
+    favorite_deal_urls,
     upsert_connected_account,
     list_connected_accounts,
     upsert_owned_game,
@@ -18,46 +24,76 @@ from .db import (
     delete_owned_game,
     owned_game_keys,
 )
-
-from .sources.steam import fetch_steam_specials, fetch_owned_steam_games
 from .sources.cheapshark import fetch_deals as fetch_cheapshark_deals, fetch_stores
+from .sources.steam import fetch_owned_steam_games, fetch_steam_deals, fetch_steam_specials
+
+logger = logging.getLogger(__name__)
 
 
-app = FastAPI(title="Game Deals Assistant")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize database and demo user on application startup."""
+    init_db()
+    get_or_create_demo_user()
+    logger.info("Application started and database ready")
+    yield
+
+
+app = FastAPI(
+    title="Game Deals Assistant",
+    description="Track discounts across Steam, CheapShark, manage game library and favorites.",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 
 class FavoriteCreate(BaseModel):
-    title: str
+    title: str = Field(..., min_length=1)
     store_name: str
     deal_url: str
-    sale_price: float
-    normal_price: float
-    savings: float
-    target_price: float | None = None
+    sale_price: float = Field(..., ge=0)
+    normal_price: float = Field(..., ge=0)
+    savings: float = Field(..., ge=0, le=100)
+    target_price: Optional[float] = Field(default=None, ge=0)
+
+
+class FavoriteDeleteRequest(BaseModel):
+    deal_url: str
 
 
 class ManualOwnedGameCreate(BaseModel):
     platform: str
-    platform_game_id: str | None = None
-    title: str
-    playtime_minutes: int = 0
+    platform_game_id: Optional[str] = None
+    title: str = Field(..., min_length=1)
+    playtime_minutes: int = Field(default=0, ge=0)
 
 
 class SteamSyncRequest(BaseModel):
-    steam_id: str
-
-
-@app.on_event("startup")
-def startup():
-    init_db()
-    get_or_create_demo_user()
+    steam_id: str = Field(..., min_length=5)
 
 
 @app.get("/")
 def index():
     return FileResponse("app/static/index.html")
+
+
+@app.get("/api/health")
+def health():
+    return {
+        "status": "ok",
+        "app": "Game Deals Assistant",
+        "version": "1.0.0",
+    }
 
 
 @app.get("/api/me")
@@ -68,13 +104,14 @@ def me():
 @app.get("/api/stores")
 def stores():
     base_sources = [
-        {"store_id": "steam_direct", "store_name": "Steam Direct"},
-        {"store_id": "cheapshark_all", "store_name": "All PC Stores"},
+        {"store_id": "steam_direct", "store_name": "Steam Direct", "icon_url": None},
+        {"store_id": "cheapshark_all", "store_name": "All PC Stores", "icon_url": None},
     ]
 
     try:
         cheapshark_stores = fetch_stores()
-    except requests.RequestException:
+    except requests.RequestException as error:
+        logger.warning(f"Could not load CheapShark stores: {error}")
         cheapshark_stores = []
 
     return {
@@ -83,8 +120,10 @@ def stores():
     }
 
 
-def mark_owned(deals, user_id, hide_owned=False):
+def mark_deals(deals, user_id: int, hide_owned: bool = False):
+    """Mark deals with ownership and favorite flags, and filter owned if requested."""
     keys = owned_game_keys(user_id)
+    fav_urls = favorite_deal_urls(user_id)
 
     owned_titles = {
         game["title"].strip().lower()
@@ -104,18 +143,16 @@ def mark_owned(deals, user_id, hide_owned=False):
         ).lower()
 
         title = (deal.get("title") or "").strip().lower()
-
         platform = "steam" if "steam" in store_name or source == "steam" else "unknown"
 
         is_owned = False
-
         if platform_game_id and (platform, platform_game_id) in keys:
             is_owned = True
-
-        if title and title in owned_titles:
+        elif title and title in owned_titles:
             is_owned = True
 
         deal["owned"] = is_owned
+        deal["is_favorite"] = deal.get("deal_url") in fav_urls
 
         if hide_owned and is_owned:
             continue
@@ -127,60 +164,46 @@ def mark_owned(deals, user_id, hide_owned=False):
 
 @app.get("/api/deals")
 def deals(
-    min_discount: int = 10,
-    max_discount: int = 100,
-    store_id: str | None = None,
-    title: str | None = None,
-    max_price: float | None = Query(default=None),
+    min_discount: int = Query(default=10, ge=0, le=100),
+    max_discount: int = Query(default=100, ge=0, le=100),
+    store_id: Optional[str] = None,
+    title: Optional[str] = None,
+    max_price: Optional[float] = Query(default=None, ge=0),
     free_only: bool = False,
-    source: str | None = None,
+    source: Optional[str] = None,
     hide_owned: bool = False,
-    page: int = 0,
-    page_size: int = 60,
+    page: int = Query(default=0, ge=0),
+    page_size: int = Query(default=60, ge=1, le=100),
 ):
-    if min_discount < 0 or max_discount > 100 or min_discount > max_discount:
-        raise HTTPException(status_code=400, detail="Invalid discount range.")
-
-    if page < 0:
-        raise HTTPException(status_code=400, detail="Invalid page number.")
-
-    if page_size < 1 or page_size > 100:
-        raise HTTPException(status_code=400, detail="Invalid page size.")
+    if min_discount > max_discount:
+        raise HTTPException(status_code=400, detail="min_discount cannot be greater than max_discount.")
 
     user = get_or_create_demo_user()
 
     try:
         if source == "steam" or store_id == "steam_direct":
-            all_steam_deals = fetch_steam_specials(
+            steam_result = fetch_steam_deals(
                 min_discount=min_discount,
                 max_discount=max_discount,
                 title=title,
                 max_price=max_price,
                 free_only=free_only,
+                page=page,
+                page_size=page_size,
                 cc="us",
                 language="english",
             )
 
-            marked_deals = mark_owned(
-                all_steam_deals,
-                user["id"],
-                hide_owned=hide_owned,
-            )
-
-            start = page * page_size
-            end = start + page_size
-
-            page_deals = marked_deals[start:end]
-            next_page = page + 1 if end < len(marked_deals) else None
+            marked = mark_deals(steam_result["deals"], user["id"], hide_owned=hide_owned)
 
             return {
-                "deals": page_deals,
-                "next_page": next_page,
+                "deals": marked,
+                "next_page": steam_result["next_page"],
             }
 
         real_store_id = None if store_id in (None, "", "cheapshark_all") else store_id
 
-        loaded_result = fetch_cheapshark_deals(
+        loaded = fetch_cheapshark_deals(
             min_discount=min_discount,
             max_discount=max_discount,
             store_id=real_store_id,
@@ -191,21 +214,18 @@ def deals(
             page_size=page_size,
         )
 
-        marked_deals = mark_owned(
-            loaded_result["deals"],
-            user["id"],
-            hide_owned=hide_owned,
-        )
+        marked = mark_deals(loaded["deals"], user["id"], hide_owned=hide_owned)
 
         return {
-            "deals": marked_deals,
-            "next_page": loaded_result["next_page"],
+            "deals": marked,
+            "next_page": loaded["next_page"],
         }
 
     except requests.RequestException as error:
+        logger.error(f"External API error: {error}")
         raise HTTPException(
             status_code=503,
-            detail=f"Cannot load deals from external API: {error}"
+            detail=f"Cannot load deals from external API: {error}",
         )
 
 
@@ -215,9 +235,9 @@ def favorite_create(payload: FavoriteCreate):
 
     add_favorite(
         user_id=user["id"],
-        title=payload.title,
-        store_name=payload.store_name,
-        deal_url=payload.deal_url,
+        title=payload.title.strip(),
+        store_name=payload.store_name.strip(),
+        deal_url=payload.deal_url.strip(),
         sale_price=payload.sale_price,
         normal_price=payload.normal_price,
         savings=payload.savings,
@@ -236,8 +256,17 @@ def favorite_list():
 @app.delete("/api/favorites/{favorite_id}")
 def favorite_delete(favorite_id: int):
     user = get_or_create_demo_user()
-    delete_favorite(favorite_id, user["id"])
+    deleted = delete_favorite(favorite_id, user["id"])
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Favorite not found")
     return {"status": "deleted"}
+
+
+@app.post("/api/favorites/delete-by-url")
+def favorite_delete_by_url(payload: FavoriteDeleteRequest):
+    user = get_or_create_demo_user()
+    deleted = delete_favorite_by_url(payload.deal_url.strip(), user["id"])
+    return {"status": "deleted" if deleted else "not_found"}
 
 
 @app.get("/api/accounts")
@@ -278,7 +307,9 @@ def add_owned_game_manual(payload: ManualOwnedGameCreate):
 @app.delete("/api/owned-games/{owned_game_id}")
 def remove_owned_game(owned_game_id: int):
     user = get_or_create_demo_user()
-    delete_owned_game(user["id"], owned_game_id)
+    deleted = delete_owned_game(user["id"], owned_game_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Owned game not found")
     return {"status": "deleted"}
 
 

@@ -13,7 +13,7 @@ services:
       - ./game_deals.db:/app/game_deals.db
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/', timeout=5)"]
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/api/health', timeout=5)"]
       interval: 30s
       timeout: 10s
       retries: 3
