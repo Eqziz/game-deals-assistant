@@ -1,1202 +1,989 @@
-/**
- * Game Deals Assistant - Frontend Controller
- */
+"use strict";
 
-let currentLanguage = localStorage.getItem("language") || "ru";
-
-const translations = {
-    ru: {
-        badge: "Pro Tracker",
-        subtitle: "Скидки, избранное, библиотека и отметка уже купленных игр.",
-        supportButton: "Поддержать",
-
-        dealsTab: "Скидки",
-        favoritesTab: "Избранное",
-        libraryTab: "Моя библиотека",
-        syncTab: "Синхронизация",
-
-        presetsLabel: "Быстрые фильтры:",
-        allDeals: "🔥 Все скидки",
-        discount90: "💥 90%+",
-        discount75: "⚡ 75%+",
-        under5: "💵 До $5",
-        free: "🎁 Бесплатно",
-
-        searchGame: "Поиск игры",
-        searchPlaceholder: "Например: Witcher, Cyberpunk, Doom...",
-        source: "Магазин / Источник",
-        allStores: "Все PC магазины",
-        minDiscount: "Мин. скидка (%)",
-        maxDiscount: "Макс. скидка (%)",
-        sort: "Сортировка",
-        sortSavings: "Сначала большая скидка",
-        sortPriceAsc: "Сначала дешевле",
-        sortPriceDesc: "Сначала дороже",
-        sortRating: "По рейтингу сделки",
-        sortTitle: "По названию (A-Z)",
-        sortStore: "По магазину",
-        hideOwned: "Скрыть купленные",
-        findDeals: "Найти скидки",
-        resetFilters: "Сброс",
-
-        dealsHeading: "Каталог скидок",
-        loadMore: "Показать ещё скидки",
-        loading: "Загрузка...",
-
-        favoritesHeading: "Моё избранное",
-        favoritesDesc: "Сохранённые скидки и отслеживание желаемой цены.",
-
-        libraryHeading: "Моя библиотека игр",
-        addOrSyncBtn: "➕ Добавить игру / Синхронизация",
-        platformAll: "Все платформы",
-        platformOther: "Другие",
-        searchLibraryPlaceholder: "Поиск в библиотеке...",
-
-        autoSync: "Автосинхронизация",
-        steamLibrary: "Синхронизация со Steam",
-        steamText: "Введи свой SteamID64 (17-значный цифровой ID профиля). Игры с временем игры добавятся в библиотеку и будут скрываться из скидок при включённом фильтре.",
-        syncSteam: "Синхронизировать",
-        steamIdHelper: "Как узнать SteamID64? Открой свой профиль Steam или используй сервис steamid.io. Профиль должен быть открытым.",
-
-        anyPlatform: "Любые сервисы",
-        manualLibrary: "Ручное добавление игры",
-        manualText: "Добавляй купленные игры из Epic Games Store, GOG, EA App, VK Play или других источников.",
-        platformLabel: "Платформа",
-        gameTitleLabel: "Название игры *",
-        manualTitlePlaceholder: "Например: Red Dead Redemption 2",
-        appIdOptional: "App ID (опционально)",
-        manualGameIdPlaceholder: "Например: 1174180",
-        playtimeOptional: "Сыграно (часов)",
-        addGameBtn: "➕ Добавить в библиотеку",
-
-        targetPriceModalTitle: "Оповещение о цене",
-        currentPrice: "Текущая цена",
-        normalPrice: "Обычная цена",
-        targetPriceInputLabel: "Желаемая цена ($):",
-        targetPriceHint: "Игра будет сохранена в избранное с отслеживанием этой суммы.",
-        cancelBtn: "Отмена",
-        saveAlertBtn: "Сохранить оповещение",
-
-        supportTitle: "Поддержать автора",
-        supportText: "Если проект оказался полезным, вы можете поддержать развитие.",
-        cardKaspi: "Банковская карта (Kaspi / Visa)",
-        receiver: "Получатель",
-        telegram: "Telegram",
-        contactMe: "Email для связи",
-        copyBtn: "Копировать",
-        copiedBtn: "Скопировано!",
-
-        alreadyOwned: "В библиотеке",
-        freeGame: "БЕСПЛАТНО",
-        openDeal: "В магазин",
-        hours: "ч",
-        targetReached: "🎯 Цель достигнута!",
-        targetSet: "Цель:",
-
-        noDeals: "Ничего не найдено. Попробуйте изменить фильтры или сбросить поиск.",
-        noFavorites: "В избранном пока пусто. Нажмите ⭐ на карточке любой игры в каталоге.",
-        noOwnedGames: "Библиотека пуста. Добавьте игру вручную или синхронизируйте со Steam.",
-        noSearchResults: "По запросу ничего не найдено в библиотеке.",
-
-        toastFavAdded: "Добавлено в избранное ⭐",
-        toastFavRemoved: "Удалено из избранного",
-        toastGameAdded: "Игра добавлена в библиотеку 📚",
-        toastGameDeleted: "Игра удалена из библиотеки",
-        toastSteamSynced: "Steam синхронизирован! Добавлено игр:",
-        toastCopied: "Скопировано в буфер обмена 📋",
-        toastError: "Произошла ошибка:",
-
-        enterTitle: "Пожалуйста, введите название игры.",
-        enterSteamId: "Пожалуйста, введите корректный SteamID64.",
-        games: "игр",
-    },
-
-    en: {
-        badge: "Pro Tracker",
-        subtitle: "Discounts, favorites, game library, and owned game tracking.",
-        supportButton: "Support",
-
-        dealsTab: "Deals",
-        favoritesTab: "Favorites",
-        libraryTab: "My Library",
-        syncTab: "Sync & Accounts",
-
-        presetsLabel: "Quick filters:",
-        allDeals: "🔥 All deals",
-        discount90: "💥 90%+",
-        discount75: "⚡ 75%+",
-        under5: "💵 Under $5",
-        free: "🎁 Free Games",
-
-        searchGame: "Game search",
-        searchPlaceholder: "For example: Witcher, Cyberpunk, Doom...",
-        source: "Store / Source",
-        allStores: "All PC Stores",
-        minDiscount: "Min discount (%)",
-        maxDiscount: "Max discount (%)",
-        sort: "Sorting",
-        sortSavings: "Highest discount first",
-        sortPriceAsc: "Lowest price first",
-        sortPriceDesc: "Highest price first",
-        sortRating: "By deal rating",
-        sortTitle: "By title (A-Z)",
-        sortStore: "By store",
-        hideOwned: "Hide owned games",
-        findDeals: "Find deals",
-        resetFilters: "Reset",
-
-        dealsHeading: "Deals Catalog",
-        loadMore: "Load more deals",
-        loading: "Loading...",
-
-        favoritesHeading: "My Favorites",
-        favoritesDesc: "Saved deals and target price monitoring.",
-
-        libraryHeading: "My Game Library",
-        addOrSyncBtn: "➕ Add Game / Sync",
-        platformAll: "All platforms",
-        platformOther: "Other",
-        searchLibraryPlaceholder: "Search in library...",
-
-        autoSync: "Auto-sync",
-        steamLibrary: "Steam Library Sync",
-        steamText: "Enter your SteamID64 (17-digit Steam profile ID). Games with playtime will be imported into your library and hidden from deals when enabled.",
-        syncSteam: "Sync Library",
-        steamIdHelper: "Where to find SteamID64? Check your Steam profile URL or use steamid.io. Profile must be public.",
-
-        anyPlatform: "Any service",
-        manualLibrary: "Manual Game Entry",
-        manualText: "Add owned games from Epic Games Store, GOG, EA App, or other platforms.",
-        platformLabel: "Platform",
-        gameTitleLabel: "Game title *",
-        manualTitlePlaceholder: "For example: Red Dead Redemption 2",
-        appIdOptional: "App ID (optional)",
-        manualGameIdPlaceholder: "For example: 1174180",
-        playtimeOptional: "Playtime (hours)",
-        addGameBtn: "➕ Add to Library",
-
-        targetPriceModalTitle: "Price Alert",
-        currentPrice: "Current price",
-        normalPrice: "Normal price",
-        targetPriceInputLabel: "Target price ($):",
-        targetPriceHint: "The game will be added to favorites with this target price alert.",
-        cancelBtn: "Cancel",
-        saveAlertBtn: "Save alert",
-
-        supportTitle: "Support the Author",
-        supportText: "If you found this tool useful, feel free to support its development.",
-        cardKaspi: "Bank Card (Kaspi / Visa)",
-        receiver: "Receiver",
-        telegram: "Telegram",
-        contactMe: "Contact email",
-        copyBtn: "Copy",
-        copiedBtn: "Copied!",
-
-        alreadyOwned: "In Library",
-        freeGame: "FREE",
-        openDeal: "Open Store",
-        hours: "hrs",
-        targetReached: "🎯 Target reached!",
-        targetSet: "Target:",
-
-        noDeals: "No deals found. Try adjusting filters or resetting search.",
-        noFavorites: "No favorites yet. Click ⭐ on any deal card in the catalog.",
-        noOwnedGames: "Your library is empty. Add a game manually or sync with Steam.",
-        noSearchResults: "No matching games in your library.",
-
-        toastFavAdded: "Added to favorites ⭐",
-        toastFavRemoved: "Removed from favorites",
-        toastGameAdded: "Game added to library 📚",
-        toastGameDeleted: "Game removed from library",
-        toastSteamSynced: "Steam synced! Added games:",
-        toastCopied: "Copied to clipboard 📋",
-        toastError: "An error occurred:",
-
-        enterTitle: "Please enter a game title.",
-        enterSteamId: "Please enter a valid SteamID64.",
-        games: "games",
-    }
+const copy = {
+  skip: ["К содержанию", "Skip to content"],
+  login: ["Войти через Google", "Sign in with Google"],
+  logout: ["Выйти", "Sign out"],
+  catalog: ["Каталог", "Catalog"],
+  favorites: ["Избранное", "Favorites"],
+  library: ["Библиотека", "Library"],
+  sync: ["Синхронизация", "Sync"],
+  deals: ["Скидки на игры", "Game deals"],
+  close: ["Закрыть", "Dismiss"],
+  search: ["Поиск по названию", "Search games by title"],
+  store: ["Магазин", "Store"],
+  allStores: ["Все магазины", "All stores"],
+  filters: ["Фильтры", "Filters"],
+  find: ["Найти", "Search"],
+  min: ["Скидка от, %", "Min. discount, %"],
+  max: ["Скидка до, %", "Max. discount, %"],
+  hideOwned: ["Скрыть купленные", "Hide owned games"],
+  reset: ["Сбросить", "Reset filters"],
+  all: ["Все скидки", "All deals"],
+  under5: ["До $5", "Up to $5"],
+  free: ["Бесплатно", "Free"],
+  sort: ["Сортировка", "Sort"],
+  byDiscount: ["По скидке", "Highest discount"],
+  low: ["Сначала дешевле", "Lowest price"],
+  high: ["Сначала дороже", "Highest price"],
+  rating: ["По рейтингу", "Deal rating"],
+  byTitle: ["По названию", "Title"],
+  byStore: ["По магазину", "Store"],
+  more: ["Показать ещё", "Load more"],
+  librarySearch: ["Поиск в библиотеке", "Search library"],
+  platform: ["Платформа", "Platform"],
+  platforms: ["Все платформы", "All platforms"],
+  addGame: ["Добавить игру", "Add a game"],
+  steamLibrary: ["Библиотека Steam", "Steam library"],
+  steamHint: [
+    "Введите 17 цифр SteamID64. Откройте доступ к играм в настройках приватности Steam.",
+    "Enter your 17-digit SteamID64. Set game details to public in your Steam privacy settings.",
+  ],
+  import: ["Импортировать", "Import games"],
+  game: ["Название игры", "Game title"],
+  appId: ["App ID (необязательно)", "App ID (optional)"],
+  playtime: ["Сыграно, часов", "Hours played"],
+  add: ["Добавить", "Add game"],
+  target: ["Желаемая цена", "Target price"],
+  targetUSD: ["Желаемая цена, USD", "Target price, USD"],
+  cancel: ["Отмена", "Cancel"],
+  save: ["Сохранить", "Save"],
+  saveFavorite: ["В избранное", "Save favorite"],
+  removeFavorite: ["Убрать из избранного", "Remove favorite"],
+  remove: ["Удалить", "Remove"],
+  open: ["В магазин", "Visit store"],
+  guest: [
+    "Войдите, чтобы открыть этот раздел.",
+    "Sign in to open this section.",
+  ],
+  busy: ["Загрузка…", "Loading…"],
+  failed: ["Не удалось загрузить данные.", "Couldn’t load this data."],
+  actionFailed: [
+    "Не удалось выполнить действие. Попробуйте ещё раз.",
+    "The action failed. Please try again.",
+  ],
+  retry: ["Повторить", "Try again"],
+  emptyDeals: [
+    "По этим фильтрам скидок не найдено.",
+    "No deals match these filters.",
+  ],
+  emptyFav: [
+    "Здесь появятся игры, которые вы сохраните в каталоге.",
+    "Games you save in the catalog will appear here.",
+  ],
+  emptyLib: ["В библиотеке пока нет игр.", "Your library is empty."],
+  noMatch: ["Игры не найдены.", "No matching games."],
+  count: ["Предложений", "Deals"],
+  owned: ["В библиотеке", "Owned"],
+  currentPrice: ["Текущая цена", "Current price"],
+  reached: ["Цена достигнута", "Target reached"],
+  saved: ["Сохранено", "Saved"],
+  removed: ["Удалено", "Removed"],
+  imported: ["Импортировано игр", "Games imported"],
+  hours: ["ч", "hrs"],
+  other: ["Другая", "Other"],
+  unavailable: [
+    "Вход через Google временно недоступен.",
+    "Google sign-in is temporarily unavailable.",
+  ],
+  authFailed: [
+    "Вход не завершён. Попробуйте ещё раз.",
+    "Sign-in wasn’t completed. Please try again.",
+  ],
+  invalidRange: [
+    "Минимальная скидка должна быть не больше максимальной.",
+    "Minimum discount must be less than or equal to maximum discount.",
+  ],
+  unavailableDeal: [
+    "Предложение больше недоступно.",
+    "This deal is no longer available.",
+  ],
+  session: [
+    "Сессия завершена. Войдите снова.",
+    "Your session has ended. Please sign in again.",
+  ],
+  serviceError: [
+    "Сервис сейчас недоступен. Попробуйте позже.",
+    "Service is currently unavailable. Please try again later.",
+  ],
+  steamError: [
+    "Импорт не удался. Проверьте SteamID64 и доступ к играм в профиле.",
+    "Import failed. Check the SteamID64 and the profile’s game privacy settings.",
+  ],
+  untitled: ["Без названия", "Untitled"],
+  lang: ["Switch to English", "Переключить на русский"],
 };
-
-function t(key) {
-    const langDict = translations[currentLanguage] || translations.ru;
-    return langDict[key] || (translations.en && translations.en[key]) || key;
+const $ = (id) => document.getElementById(id);
+const read = (storage, key) => {
+  try {
+    return storage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+const write = (storage, key, value) => {
+  try {
+    if (value === null) storage.removeItem(key);
+    else storage.setItem(key, value);
+  } catch {
+    /* Storage may be disabled. */
+  }
+};
+let language = read(localStorage, "language") === "en" ? "en" : "ru";
+const t = (key) => copy[key][language === "ru" ? 0 : 1];
+const price = (number) =>
+  new Intl.NumberFormat(language, {
+    style: "currency",
+    currency: "USD",
+    currencyDisplay: "narrowSymbol",
+  }).format(number);
+const platforms = {
+  steam: "Steam",
+  epic: "Epic Games",
+  gog: "GOG",
+  ea: "EA",
+  ubisoft: "Ubisoft Connect",
+  other: "",
+};
+const icons = {
+  favorite: "M6 3.5h12v17L12 17l-6 3.5z",
+  target:
+    "M12 3v2m0 14v2M3 12h2m14 0h2M19 12a7 7 0 1 1-14 0 7 7 0 1 1 14 0z M14 12a2 2 0 1 1-4 0 2 2 0 1 1 4 0z",
+  remove: "M4 7h16M9 7V4h6v3m-9 0 1 13h10l1-13M10 10v7m4-7v7",
+};
+function node(tag, cls, content) {
+  const element = document.createElement(tag);
+  if (cls) element.className = cls;
+  if (content != null) element.textContent = content;
+  return element;
 }
-
+function button(label, callback, icon) {
+  const btn = node("button", "", icon ? null : label);
+  btn.type = "button";
+  btn.addEventListener("click", callback);
+  if (icon) {
+    btn.title = label;
+    btn.setAttribute("aria-label", label);
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "1.7");
+    svg.setAttribute("aria-hidden", "true");
+    const path = document.createElementNS(svg.namespaceURI, "path");
+    path.setAttribute("d", icons[icon]);
+    svg.append(path);
+    btn.append(svg);
+  }
+  return btn;
+}
+function safeURL(raw) {
+  if (typeof raw !== "string") return null;
+  try {
+    const url = new URL(raw);
+    return ["http:", "https:"].includes(url.protocol) &&
+      !url.username &&
+      !url.password
+      ? url.href
+      : null;
+  } catch {
+    return null;
+  }
+}
+const state = {
+  me: null,
+  authStatus: "loading",
+  tab: "deals",
+  deals: [],
+  next: null,
+  load: "loading",
+  append: false,
+  preset: "all",
+  query: null,
+  favorites: [],
+  library: [],
+  favoriteStatus: "idle",
+  libraryStatus: "idle",
+};
+let requestId = 0,
+  personalVersion = 0,
+  requestController,
+  searchTimer,
+  toastTimer,
+  dialogDeal,
+  targetOpener;
+const personalRequests = { favorites: 0, library: 0 };
+function message(box, key, action, callback) {
+  const div = node("div", "empty");
+  div.append(node("p", "", t(key)));
+  if (action) div.append(button(t(action), callback));
+  box.replaceChildren(div);
+}
+function toast(key) {
+  clearTimeout(toastTimer);
+  $("toast").textContent = t(key);
+  toastTimer = setTimeout(() => $("toast").replaceChildren(), 3500);
+}
+function notice(key) {
+  $("notice").hidden = !key;
+  $("notice").dataset.key = key || "";
+  $("notice").querySelector("span").textContent = key ? t(key) : "";
+}
+async function api(path, method = "GET", body, signal) {
+  const response = await fetch(path, {
+    method,
+    credentials: "same-origin",
+    headers: body ? { "Content-Type": "application/json" } : {},
+    body: body ? JSON.stringify(body) : undefined,
+    signal,
+    cache: "no-store",
+  });
+  if (response.status === 401) {
+    clearPersonal();
+    state.authStatus = "ready";
+    renderPersonal();
+    renderAccount();
+    renderDeals();
+    notice("session");
+  }
+  if (!response.ok) throw new Error(String(response.status));
+  return response.status === 204 ? null : response.json();
+}
 function applyLanguage() {
-    document.querySelectorAll("[data-i18n]").forEach(element => {
-        const key = element.dataset.i18n;
-        element.textContent = t(key);
-    });
-
-    document.querySelectorAll("[data-i18n-placeholder]").forEach(element => {
-        const key = element.dataset.i18nPlaceholder;
-        element.placeholder = t(key);
-    });
-
-    const langLabel = document.getElementById("langLabel");
-    if (langLabel) {
-        langLabel.textContent = currentLanguage === "ru" ? "EN" : "RU";
+  document.documentElement.lang = language;
+  document
+    .querySelectorAll("[data-t]")
+    .forEach((el) => (el.textContent = t(el.dataset.t)));
+  document
+    .querySelectorAll("[data-placeholder]")
+    .forEach((el) => (el.placeholder = t(el.dataset.placeholder)));
+  $("language").textContent = language === "ru" ? "EN" : "RU";
+  $("language").setAttribute("aria-label", t("lang"));
+  for (const select of [$("manualPlatform"), $("libraryPlatform")]) {
+    const selected = select.value;
+    select.replaceChildren();
+    if (select.id === "libraryPlatform")
+      select.add(new Option(t("platforms"), ""));
+    for (const [value, label] of Object.entries(platforms))
+      select.add(new Option(label || t("other"), value));
+    if ([...select.options].some((o) => o.value === selected))
+      select.value = selected;
+  }
+  if ($("notice").dataset.key) notice($("notice").dataset.key);
+  renderAccount();
+  renderDeals();
+  renderPersonal();
+}
+function setTab() {
+  const hash = location.hash.slice(1);
+  state.tab = ["favorites", "library", "sync"].includes(hash) ? hash : "deals";
+  document
+    .querySelectorAll("main > section")
+    .forEach((el) => (el.hidden = el.id !== state.tab));
+  document.querySelectorAll("nav a").forEach((a) => {
+    if (a.hash === "#" + state.tab) a.setAttribute("aria-current", "page");
+    else a.removeAttribute("aria-current");
+  });
+  document.title = t(state.tab) + " · Game Deals Assistant";
+}
+function renderAccount() {
+  $("account").textContent = t(state.me ? "logout" : "login");
+  $("account").disabled = state.authStatus === "loading";
+  $("identity").textContent = state.me?.name || state.me?.email || "";
+}
+function clearPersonal() {
+  personalVersion++;
+  state.me = null;
+  state.favorites = [];
+  state.library = [];
+  state.favoriteStatus = state.libraryStatus = "idle";
+  state.deals.forEach((d) => {
+    d.is_favorite = false;
+    d.owned = false;
+  });
+  $("owned").checked = false;
+  if ($("priceDialog").open) $("priceDialog").close();
+  $("steamForm").reset();
+  $("manualForm").reset();
+  document.querySelectorAll(".feedback").forEach((el) => el.replaceChildren());
+}
+function login(deal, action) {
+  write(
+    sessionStorage,
+    "returnToDeal",
+    JSON.stringify({
+      tab: state.tab,
+      url: deal?.deal_url,
+      title: deal?.title,
+      action,
+      filters: values(),
+      sort: $("sort").value,
+      preset: state.preset,
+      time: Date.now(),
+    }),
+  );
+  location.assign(
+    "/auth/login?" + new URLSearchParams({ next: "/#" + state.tab }),
+  );
+}
+async function identify() {
+  try {
+    const response = await api("/api/me");
+    state.me = response.authenticated ? response.user : null;
+    state.authStatus = "ready";
+  } catch {
+    state.authStatus = "error";
+  }
+  renderAccount();
+  renderPersonal();
+}
+async function loadPersonal(kind) {
+  if (!state.me) return;
+  const version = personalVersion;
+  const request = ++personalRequests[kind];
+  const status = kind === "favorites" ? "favoriteStatus" : "libraryStatus";
+  state[status] = "loading";
+  renderPersonal();
+  try {
+    const data = await api(
+      kind === "favorites" ? "/api/favorites" : "/api/owned-games",
+    );
+    if (version !== personalVersion || request !== personalRequests[kind])
+      return;
+    state[kind] = data;
+    state[status] = "ready";
+    if (kind === "favorites") {
+      const urls = new Set(data.map((d) => d.deal_url));
+      state.deals.forEach((d) => (d.is_favorite = urls.has(d.deal_url)));
     }
-
-    document.documentElement.lang = currentLanguage;
+  } catch {
+    if (version !== personalVersion || request !== personalRequests[kind])
+      return;
+    state[status] = "error";
+  }
+  renderPersonal();
+  renderDeals();
 }
-
-// Global state
-let lastDeals = [];
-let nextDealsPage = null;
-let currentDealsExtra = {};
-let currentPreset = "all";
-let cachedFavorites = [];
-let cachedOwnedGames = [];
-let targetModalDeal = null;
-let searchDebounceTimer = null;
-
-// DOM Elements
-const dealsGrid = document.getElementById("dealsGrid");
-const loadMoreBtn = document.getElementById("loadMoreBtn");
-const favoritesGrid = document.getElementById("favoritesGrid");
-const ownedGrid = document.getElementById("ownedGrid");
-const storeSelect = document.getElementById("storeSelect");
-const sortSelect = document.getElementById("sortSelect");
-const titleSearch = document.getElementById("titleSearch");
-const clearSearchBtn = document.getElementById("clearSearchBtn");
-const minDiscountInput = document.getElementById("minDiscount");
-const maxDiscountInput = document.getElementById("maxDiscount");
-const hideOwnedCheckbox = document.getElementById("hideOwned");
-const loadDealsBtn = document.getElementById("loadDealsBtn");
-const resetFiltersBtn = document.getElementById("resetFiltersBtn");
-const errorBox = document.getElementById("errorBox");
-
-const dealsCount = document.getElementById("dealsCount");
-const dealsCountBadge = document.getElementById("dealsCountBadge");
-const favCountBadge = document.getElementById("favCountBadge");
-const favoritesCount = document.getElementById("favoritesCount");
-const libraryCount = document.getElementById("libraryCount");
-const libraryCountBadge = document.getElementById("libraryCountBadge");
-
-const toastContainer = document.getElementById("toastContainer");
-const targetPriceModal = document.getElementById("targetPriceModal");
-const supportModal = document.getElementById("supportModal");
-
-// API helper
-async function api(path, options = {}) {
-    const response = await fetch(path, {
-        headers: {
-            "Content-Type": "application/json",
-            ...(options.headers || {})
-        },
-        ...options
-    });
-
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.detail || `Request failed (${response.status})`);
+function gate(box) {
+  if (state.authStatus === "loading") message(box, "busy");
+  else if (state.authStatus === "error")
+    message(box, "failed", "retry", bootstrap);
+  else message(box, "guest", "login", () => login());
+}
+function values() {
+  return {
+    title: $("query").value.trim(),
+    store: $("store").value,
+    min: $("min").value,
+    max: $("max").value,
+    owned: $("owned").checked,
+  };
+}
+function validFilters() {
+  $("max").setCustomValidity(
+    Number($("min").value) > Number($("max").value) ? t("invalidRange") : "",
+  );
+  if (!$("filters").checkValidity()) {
+    setAdvanced(true);
+    $("filters").reportValidity();
+    return false;
+  }
+  return true;
+}
+function setAdvanced(open) {
+  $("advanced").hidden = !open;
+  $("toggleFilters").setAttribute("aria-expanded", String(open));
+}
+function showPreset(preset) {
+  state.preset = preset;
+  document
+    .querySelectorAll("[data-preset]")
+    .forEach((b) =>
+      b.setAttribute("aria-pressed", String(b.dataset.preset === preset)),
+    );
+}
+function queryParams() {
+  const v = values();
+  const params = new URLSearchParams({
+    min_discount: v.min,
+    max_discount: v.max,
+    page_size: 60,
+    hide_owned: String(Boolean(state.me && v.owned)),
+  });
+  if (v.title) params.set("title", v.title);
+  if (v.store === "steam_direct") params.set("source", "steam");
+  else if (v.store) params.set("store_id", v.store);
+  if (state.preset === "free") params.set("free_only", "true");
+  if (state.preset === "under5") params.set("max_price", "5");
+  return params;
+}
+async function loadDeals(append = false) {
+  clearTimeout(searchTimer);
+  if (append && (state.next == null || state.load === "loading")) return;
+  if (!append && !validFilters()) return;
+  const token = ++requestId;
+  requestController?.abort();
+  requestController = new AbortController();
+  if (!append) {
+    state.deals = [];
+    state.next = null;
+    state.query = queryParams().toString();
+  }
+  state.load = "loading";
+  state.append = append;
+  const params = new URLSearchParams(state.query);
+  const page = append ? state.next : 0;
+  params.set("page", page);
+  renderDeals();
+  try {
+    const data = await api(
+      "/api/deals?" + params,
+      "GET",
+      undefined,
+      requestController.signal,
+    );
+    if (token !== requestId) return;
+    const urls = new Set(state.deals.map((d) => d.deal_url));
+    for (const deal of data.deals) {
+      if (!deal.deal_url || !urls.has(deal.deal_url)) state.deals.push(deal);
+      urls.add(deal.deal_url);
     }
-
-    return response.json();
+    state.next =
+      Number.isInteger(data.next_page) && data.next_page > page
+        ? data.next_page
+        : null;
+    state.load = "ready";
+  } catch {
+    if (token !== requestId) return;
+    state.load = "error";
+  }
+  renderDeals();
 }
-
-function showToast(message, type = "info") {
-    if (!toastContainer) return;
-
-    const toast = document.createElement("div");
-    toast.className = `toast toast-${type}`;
-    toast.textContent = message;
-
-    toastContainer.appendChild(toast);
-
-    setTimeout(() => {
-        toast.classList.add("fade-out");
-        setTimeout(() => toast.remove(), 220);
-    }, 2800);
+function sortedDeals() {
+  const sort = $("sort").value;
+  const numeric = {
+    savings: ["savings", -1],
+    low: ["sale_price", 1],
+    high: ["sale_price", -1],
+    rating: ["deal_rating", -1],
+  };
+  return [...state.deals].sort((a, b) => {
+    if (numeric[sort]) {
+      const [key, order] = numeric[sort];
+      return order * (Number(a[key] || 0) - Number(b[key] || 0));
+    }
+    const key = sort === "store" ? "store_name" : "title";
+    return String(a[key] || "").localeCompare(String(b[key] || ""), language);
+  });
 }
-
-function showError(message) {
-    if (!errorBox) return;
-    if (!message) {
-        errorBox.textContent = "";
-        errorBox.classList.add("hidden");
+function artwork(deal) {
+  const cover = node(
+    "div",
+    "cover",
+    (deal.title || "—").slice(0, 1).toUpperCase(),
+  );
+  cover.setAttribute("aria-hidden", "true");
+  const src = safeURL(deal.thumb);
+  if (src) {
+    const img = node("img");
+    img.alt = "";
+    img.loading = "lazy";
+    img.decoding = "async";
+    img.addEventListener(
+      "error",
+      () => (cover.textContent = (deal.title || "—").slice(0, 1).toUpperCase()),
+      { once: true },
+    );
+    img.src = src;
+    cover.replaceChildren(img);
+  }
+  return cover;
+}
+function favoriteBody(deal, target) {
+  return {
+    title: deal.title,
+    store_name: deal.store_name,
+    deal_url: deal.deal_url,
+    sale_price: deal.sale_price,
+    normal_price: deal.normal_price,
+    savings: deal.savings,
+    target_price: target,
+  };
+}
+async function favoriteAction(deal, btn, saved) {
+  if (!state.me) {
+    login(deal, "favorite");
+    return;
+  }
+  btn.disabled = true;
+  try {
+    if (saved)
+      await api("/api/favorites/delete-by-url", "POST", {
+        deal_url: deal.deal_url,
+      });
+    else await api("/api/favorites", "POST", favoriteBody(deal, null));
+    deal.is_favorite = !saved;
+    await loadPersonal("favorites");
+    toast(saved ? "removed" : "saved");
+    focusAction(deal, "favorite");
+  } catch {
+    if (state.me) toast("actionFailed");
+  } finally {
+    btn.disabled = false;
+  }
+}
+function target(deal, opener) {
+  if (!state.me) {
+    login(deal, "target");
+    return;
+  }
+  dialogDeal = deal;
+  targetOpener = opener;
+  $("targetGame").textContent = deal.title;
+  $("currentPrice").textContent =
+    t("currentPrice") + " · " + price(deal.sale_price);
+  const existing = state.favorites.find((f) => f.deal_url === deal.deal_url);
+  $("targetPrice").value = Number(
+    existing?.target_price ?? Math.max(0, Number(deal.sale_price) * 0.8),
+  ).toFixed(2);
+  $("priceForm").querySelector(".feedback").replaceChildren();
+  $("priceDialog").showModal();
+  $("targetPrice").focus();
+  $("targetPrice").select();
+}
+function dealRow(deal, favorite = false) {
+  const row = node("article", "row" + (favorite ? " compact" : ""));
+  row.dataset.url = deal.deal_url || "";
+  if (!favorite) row.append(artwork(deal));
+  const info = node("div");
+  info.append(node("h3", "", deal.title || t("untitled")));
+  const meta = [deal.store_name];
+  if (deal.owned) meta.push(t("owned"));
+  if (Number(deal.steam_rating_percent) > 0)
+    meta.push("Steam " + deal.steam_rating_percent + "%");
+  if (Number(deal.metacritic_score) > 0)
+    meta.push("Metacritic " + deal.metacritic_score);
+  info.append(node("p", "meta", meta.filter(Boolean).join(" · ")));
+  if (favorite && deal.target_price != null)
+    info.append(
+      node(
+        "p",
+        "target-info",
+        t(
+          Number(deal.sale_price) <= Number(deal.target_price)
+            ? "reached"
+            : "target",
+        ) +
+          " · " +
+          price(deal.target_price),
+      ),
+    );
+  const prices = node("div", "price");
+  if (Number(deal.savings) > 0)
+    prices.append(
+      node("span", "discount", "−" + Math.round(deal.savings) + "%"),
+    );
+  if (Number(deal.normal_price) > Number(deal.sale_price))
+    prices.append(node("del", "", price(deal.normal_price)));
+  prices.append(
+    node(
+      "strong",
+      "",
+      Number(deal.sale_price) === 0 ? t("free") : price(deal.sale_price),
+    ),
+  );
+  const actions = node("div", "actions"),
+    url = safeURL(deal.deal_url);
+  if (url) {
+    const link = node("a", "button", t("open"));
+    link.href = url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    actions.append(link);
+    const saved =
+      favorite ||
+      (state.me &&
+        (deal.is_favorite ||
+          state.favorites.some((f) => f.deal_url === deal.deal_url)));
+    const fav = button(
+      t(saved ? "removeFavorite" : "saveFavorite") + " · " + deal.title,
+      () => favoriteAction(deal, fav, saved),
+      "favorite",
+    );
+    fav.dataset.action = "favorite";
+    fav.setAttribute("aria-pressed", String(Boolean(saved)));
+    const alert = button(
+      t("target") + " · " + deal.title,
+      () => target(deal, alert),
+      "target",
+    );
+    alert.dataset.action = "target";
+    actions.append(fav, alert);
+  } else if (favorite) {
+    const remove = button(
+      t("removeFavorite"),
+      () => removeRecord("favorites", deal.id, remove),
+      "remove",
+    );
+    actions.append(remove);
+  }
+  row.append(info, prices, actions);
+  return row;
+}
+function renderDeals() {
+  $("count").textContent =
+    state.load === "loading" && !state.append
+      ? t("busy")
+      : state.load === "error" && !state.deals.length
+        ? ""
+        : t("count") + " · " + state.deals.length;
+  $("dealRows").replaceChildren(...sortedDeals().map((d) => dealRow(d)));
+  const box = $("dealStatus");
+  box.replaceChildren();
+  if (state.load === "loading" && state.append) message(box, "busy");
+  else if (state.load === "error")
+    message(box, "failed", "retry", () => loadDeals(state.append));
+  else if (state.load === "ready" && !state.deals.length)
+    message(box, "emptyDeals", "reset", resetFilters);
+  $("more").hidden = state.next == null || state.load !== "ready";
+}
+async function removeRecord(kind, id, btn) {
+  btn.disabled = true;
+  try {
+    const path = kind === "favorites" ? "/api/favorites/" : "/api/owned-games/";
+    await api(path + encodeURIComponent(id), "DELETE");
+    await loadPersonal(kind);
+    if (kind === "library") await loadDeals();
+    toast("removed");
+  } catch {
+    if (state.me) toast("actionFailed");
+  } finally {
+    btn.disabled = false;
+  }
+}
+function renderPersonal() {
+  document
+    .querySelectorAll(".personal")
+    .forEach((el) => (el.hidden = !state.me));
+  if (!state.me) {
+    for (const id of ["favoriteRows", "libraryRows", "syncGate"]) gate($(id));
+    return;
+  }
+  $("syncGate").replaceChildren();
+  for (const [kind, id, status] of [
+    ["favorites", "favoriteRows", state.favoriteStatus],
+    ["library", "libraryRows", state.libraryStatus],
+  ]) {
+    const box = $(id);
+    if (status === "loading" || status === "idle") {
+      message(box, "busy");
+      continue;
+    }
+    if (status === "error") {
+      message(box, "failed", "retry", () => loadPersonal(kind));
+      continue;
+    }
+    if (kind === "favorites") {
+      if (state.favorites.length)
+        box.replaceChildren(...state.favorites.map((d) => dealRow(d, true)));
+      else message(box, "emptyFav", "catalog", () => (location.hash = "deals"));
     } else {
-        errorBox.textContent = message;
-        errorBox.classList.remove("hidden");
+      const platform = $("libraryPlatform").value;
+      const title = $("librarySearch").value.trim().toLocaleLowerCase();
+      const games = state.library.filter(
+        (g) =>
+          (!platform || g.platform === platform) &&
+          (!title || String(g.title).toLocaleLowerCase().includes(title)),
+      );
+      if (!games.length) {
+        if (state.library.length) message(box, "noMatch");
+        else
+          message(box, "emptyLib", "addGame", () => (location.hash = "sync"));
+        continue;
+      }
+      box.replaceChildren(
+        ...games.map((game) => {
+          const row = node("article", "row compact"),
+            info = node("div");
+          info.append(
+            node("h3", "", game.title),
+            node(
+              "p",
+              "meta",
+              [
+                platforms[game.platform] ||
+                  (game.platform === "other" ? t("other") : game.platform),
+                game.platform_game_id,
+              ]
+                .filter(Boolean)
+                .join(" · "),
+            ),
+          );
+          const hours = Number(game.playtime_minutes) / 60;
+          const actions = node("div", "actions");
+          const btn = button(
+            t("remove") + " · " + game.title,
+            () => removeRecord("library", game.id, btn),
+            "remove",
+          );
+          actions.append(btn);
+          row.append(
+            info,
+            node(
+              "span",
+              "meta",
+              hours
+                ? hours.toLocaleString(language, { maximumFractionDigits: 1 }) +
+                    " " +
+                    t("hours")
+                : "",
+            ),
+            actions,
+          );
+          return row;
+        }),
+      );
     }
+  }
+}
+function resetFilters() {
+  $("filters").reset();
+  $("max").setCustomValidity("");
+  $("sort").value = "savings";
+  showPreset("all");
+  loadDeals();
+}
+function focusAction(deal, action) {
+  const rows = $(
+    state.tab === "favorites" ? "favoriteRows" : "dealRows",
+  ).children;
+  const row = [...rows].find((r) => r.dataset.url === deal.deal_url);
+  const btn = row?.querySelector('[data-action="' + action + '"]');
+  btn?.focus();
+  return btn;
 }
 
-function money(value) {
-    const num = Number(value);
-    if (Number.isNaN(num) || num <= 0) {
-        return "$0.00";
-    }
-    return `$${num.toFixed(2)}`;
-}
-
-// Fallback image generator
-function getPlaceholderSvg(title = "") {
-    const safeTitle = (title || "Game").slice(0, 24);
-    return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="170" viewBox="0 0 300 170"><rect width="100%" height="100%" fill="%23141724"/><text x="50%" y="45%" font-size="34" text-anchor="middle" fill="%234338ca">🎮</text><text x="50%" y="70%" font-size="13" font-family="sans-serif" font-weight="bold" text-anchor="middle" fill="%2394a3b8">${encodeURIComponent(safeTitle)}</text></svg>`;
-}
-
-// TABS HANDLING
-function setupTabs() {
-    document.querySelectorAll(".tab-btn").forEach(btn => {
-        btn.addEventListener("click", () => {
-            const targetTab = btn.dataset.tab;
-
-            document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-            document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
-
-            btn.classList.add("active");
-            const pane = document.getElementById(`tab-${targetTab}`);
-            if (pane) {
-                pane.classList.add("active");
-            }
-        });
-    });
-
-    const jumpToSyncBtn = document.getElementById("jumpToSyncBtn");
-    if (jumpToSyncBtn) {
-        jumpToSyncBtn.addEventListener("click", () => {
-            const syncTabBtn = document.querySelector('.tab-btn[data-tab="sync"]');
-            if (syncTabBtn) syncTabBtn.click();
-        });
-    }
-}
-
-// STORE LIST
 async function loadStores() {
-    try {
-        const data = await api("/api/stores");
-        if (!storeSelect) return;
-
-        storeSelect.innerHTML = "";
-
-        const allStoresOpt = document.createElement("option");
-        allStoresOpt.value = "cheapshark_all";
-        allStoresOpt.textContent = t("allStores");
-        storeSelect.appendChild(allStoresOpt);
-
-        data.all.forEach(store => {
-            if (store.store_id === "cheapshark_all") return;
-            const option = document.createElement("option");
-            option.value = store.store_id;
-            option.textContent = store.store_name;
-            storeSelect.appendChild(option);
-        });
-    } catch (error) {
-        console.error("Store loading error:", error);
+  try {
+    const data = await api("/api/stores");
+    for (const s of data.all) {
+      const id = String(s.store_id);
+      if (
+        id !== "cheapshark_all" &&
+        ![...$("store").options].some((o) => o.value === id)
+      ) {
+        $("store").add(new Option(s.store_name, id));
+      }
     }
+  } catch {
+    /* Search remains available with the built-in sources. */
+  }
 }
-
-// DEALS SORTING
-function sortDealsList(deals) {
-    const sortVal = sortSelect ? sortSelect.value : "savings";
-    const sorted = [...deals];
-
-    if (sortVal === "savings") {
-        sorted.sort((a, b) => Number(b.savings || 0) - Number(a.savings || 0));
-    } else if (sortVal === "price_asc") {
-        sorted.sort((a, b) => Number(a.sale_price || 0) - Number(b.sale_price || 0));
-    } else if (sortVal === "price_desc") {
-        sorted.sort((a, b) => Number(b.sale_price || 0) - Number(a.sale_price || 0));
-    } else if (sortVal === "rating") {
-        sorted.sort((a, b) => Number(b.deal_rating || 0) - Number(a.deal_rating || 0));
-    } else if (sortVal === "title") {
-        sorted.sort((a, b) => String(a.title || "").localeCompare(String(b.title || "")));
-    } else if (sortVal === "store") {
-        sorted.sort((a, b) => String(a.store_name || "").localeCompare(String(b.store_name || "")));
-    }
-
-    return sorted;
+function resumeLogin() {
+  let pending;
+  try {
+    pending = JSON.parse(read(sessionStorage, "returnToDeal"));
+  } catch {
+    return null;
+  }
+  write(sessionStorage, "returnToDeal", null);
+  if (!pending || Date.now() - pending.time > 1800000) return null;
+  if (pending.filters) {
+    const v = pending.filters;
+    $("query").value = v.title || "";
+    $("min").value = v.min ?? 10;
+    $("max").value = v.max ?? 100;
+    if (v.store && ![...$("store").options].some((o) => o.value === v.store))
+      $("store").add(new Option(v.store, v.store));
+    $("store").value = v.store || "";
+    $("owned").checked = Boolean(v.owned && state.me);
+    $("sort").value = pending.sort || "savings";
+    showPreset(pending.preset);
+  }
+  if (["deals", "favorites", "library", "sync"].includes(pending.tab))
+    location.hash = pending.tab;
+  setTab();
+  return pending;
 }
-
-// SKELETON CARDS
-function renderSkeletons(count = 12) {
-    if (!dealsGrid) return;
-    dealsGrid.innerHTML = "";
-    for (let i = 0; i < count; i++) {
-        const skel = document.createElement("div");
-        skel.className = "skeleton-card";
-        skel.innerHTML = `
-            <div class="skeleton-media"></div>
-            <div class="skeleton-body">
-                <div class="skeleton-line w-70"></div>
-                <div class="skeleton-line w-90"></div>
-                <div class="skeleton-line w-40"></div>
-            </div>
-        `;
-        dealsGrid.appendChild(skel);
+async function bootstrap() {
+  const stores = loadStores();
+  await identify();
+  const pending = resumeLogin();
+  await Promise.all([
+    loadDeals(),
+    state.me && loadPersonal("favorites"),
+    state.me && loadPersonal("library"),
+  ]);
+  if (pending?.url && state.me) {
+    let deal = state.deals.find((d) => d.deal_url === pending.url);
+    if (!deal && pending.title && state.load === "ready") {
+      $("query").value = pending.title;
+      await loadDeals();
+      deal = state.deals.find((d) => d.deal_url === pending.url);
     }
+    if (deal) {
+      const btn = focusAction(deal, pending.action);
+      if (pending.action === "target" && btn) target(deal, btn);
+    } else if (state.load === "ready") notice("unavailableDeal");
+  }
+  await stores;
 }
-
-// RENDER DEALS
-function renderDeals(deals) {
-    if (!dealsGrid) return;
-    dealsGrid.innerHTML = "";
-
-    if (!Array.isArray(deals)) {
-        showError("Invalid deals response format");
-        return;
-    }
-
-    const sorted = sortDealsList(deals);
-    const countText = `${sorted.length} ${t("games")}`;
-    if (dealsCount) dealsCount.textContent = countText;
-    if (dealsCountBadge) dealsCountBadge.textContent = sorted.length;
-
-    if (sorted.length === 0) {
-        dealsGrid.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-icon">🎮</div>
-                <h3>${t("noDeals")}</h3>
-                <button class="btn btn-secondary" onclick="document.getElementById('resetFiltersBtn').click()">
-                    ${t("resetFilters")}
-                </button>
-            </div>
-        `;
-        updateLoadMoreButton();
-        return;
-    }
-
-    const favUrls = new Set(cachedFavorites.map(f => f.deal_url));
-
-    sorted.forEach(deal => {
-        const card = document.createElement("article");
-        card.className = "card";
-
-        const title = deal.title || "Unknown game";
-        const storeName = deal.store_name || "PC Store";
-        const storeIcon = deal.store_icon;
-        const thumb = deal.thumb || "";
-        const normalPriceVal = Number(deal.normal_price || 0);
-        const salePriceVal = Number(deal.sale_price || 0);
-        const savings = Math.round(Number(deal.savings || 0));
-        const dealUrl = deal.deal_url || "#";
-        const owned = Boolean(deal.owned);
-        const isFav = deal.is_favorite || favUrls.has(dealUrl);
-        const isFree = salePriceVal === 0;
-
-        const steamRating = deal.steam_rating_percent;
-        const metacritic = deal.metacritic_score;
-
-        const fallbackImg = getPlaceholderSvg(title);
-
-        card.innerHTML = `
-            <div class="card-media">
-                <img
-                    src="${thumb || fallbackImg}"
-                    alt="${title}"
-                    loading="lazy"
-                    onerror="this.onerror=null;this.src='${fallbackImg}'"
-                >
-                <div class="floating-discount">-${savings}%</div>
-                <div class="floating-store">
-                    ${storeIcon ? `<img src="${storeIcon}" alt="">` : ""}
-                    <span>${storeName}</span>
-                </div>
-            </div>
-
-            <div class="card-content">
-                <div class="card-badges-row">
-                    ${owned ? `<span class="owned-badge">✓ ${t("alreadyOwned")}</span>` : ""}
-                    ${steamRating ? `<span class="rating-badge">★ ${steamRating}%</span>` : ""}
-                    ${metacritic ? `<span class="metacritic-badge" title="Metacritic">${metacritic}</span>` : ""}
-                </div>
-
-                <h3 class="card-title" title="${title}">${title}</h3>
-
-                <div class="card-pricing">
-                    <span class="price-strike">${money(normalPriceVal)}</span>
-                    ${isFree
-                        ? `<span class="price-free">${t("freeGame")}</span>`
-                        : `<span class="price-current">${money(salePriceVal)}</span>`
-                    }
-                </div>
-
-                <div class="card-actions-bar">
-                    <a href="${dealUrl}" target="_blank" rel="noopener noreferrer" class="open-deal-btn">
-                        <span>${t("openDeal")}</span> ↗
-                    </a>
-                    <button class="fav-toggle-btn ${isFav ? "active" : ""}" title="${isFav ? t("toastFavRemoved") : t("toastFavAdded")}">
-                        ${isFav ? "★" : "☆"}
-                    </button>
-                    <button class="alert-toggle-btn" title="${t("targetPriceModalTitle")}">
-                        🔔
-                    </button>
-                </div>
-            </div>
-        `;
-
-        // Favorite Toggle
-        const favBtn = card.querySelector(".fav-toggle-btn");
-        favBtn.addEventListener("click", async () => {
-            const currentlyFav = favBtn.classList.contains("active");
-            if (currentlyFav) {
-                try {
-                    await api("/api/favorites/delete-by-url", {
-                        method: "POST",
-                        body: JSON.stringify({ deal_url: dealUrl })
-                    });
-                    favBtn.classList.remove("active");
-                    favBtn.textContent = "☆";
-                    deal.is_favorite = false;
-                    showToast(t("toastFavRemoved"));
-                    await loadFavorites();
-                } catch (err) {
-                    showToast(`${t("toastError")} ${err.message}`, "error");
-                }
-            } else {
-                try {
-                    await api("/api/favorites", {
-                        method: "POST",
-                        body: JSON.stringify({
-                            title,
-                            store_name: storeName,
-                            deal_url: dealUrl,
-                            sale_price: salePriceVal,
-                            normal_price: normalPriceVal,
-                            savings: Number(deal.savings || 0),
-                            target_price: null
-                        })
-                    });
-                    favBtn.classList.add("active");
-                    favBtn.textContent = "★";
-                    deal.is_favorite = true;
-                    showToast(t("toastFavAdded"));
-                    await loadFavorites();
-                } catch (err) {
-                    showToast(`${t("toastError")} ${err.message}`, "error");
-                }
-            }
-        });
-
-        // Price Alert Modal button
-        const alertBtn = card.querySelector(".alert-toggle-btn");
-        alertBtn.addEventListener("click", () => {
-            openTargetPriceModal(deal);
-        });
-
-        dealsGrid.appendChild(card);
-    });
-
-    updateLoadMoreButton();
-}
-
-// TARGET PRICE MODAL
-function openTargetPriceModal(deal) {
-    if (!targetPriceModal) return;
-    targetModalDeal = deal;
-
-    const gameTitleEl = document.getElementById("targetModalGameTitle");
-    const currentPriceEl = document.getElementById("targetModalCurrentPrice");
-    const normalPriceEl = document.getElementById("targetModalNormalPrice");
-    const targetInput = document.getElementById("targetPriceInput");
-
-    if (gameTitleEl) gameTitleEl.textContent = deal.title || "";
-    if (currentPriceEl) currentPriceEl.textContent = money(deal.sale_price);
-    if (normalPriceEl) normalPriceEl.textContent = money(deal.normal_price);
-    if (targetInput) {
-        const suggested = Math.max(0.99, Number(deal.sale_price || 0) * 0.8).toFixed(2);
-        targetInput.value = suggested;
-    }
-
-    targetPriceModal.classList.remove("hidden");
-}
-
-function setupTargetPriceModal() {
-    if (!targetPriceModal) return;
-
-    document.querySelectorAll('[data-close="targetPriceModal"]').forEach(el => {
-        el.addEventListener("click", () => {
-            targetPriceModal.classList.add("hidden");
-        });
-    });
-
-    targetPriceModal.addEventListener("click", (e) => {
-        if (e.target === targetPriceModal) {
-            targetPriceModal.classList.add("hidden");
-        }
-    });
-
-    const saveBtn = document.getElementById("saveTargetPriceBtn");
-    if (saveBtn) {
-        saveBtn.addEventListener("click", async () => {
-            if (!targetModalDeal) return;
-            const targetInput = document.getElementById("targetPriceInput");
-            const targetVal = targetInput && targetInput.value ? Number(targetInput.value) : null;
-
-            try {
-                await api("/api/favorites", {
-                    method: "POST",
-                    body: JSON.stringify({
-                        title: targetModalDeal.title,
-                        store_name: targetModalDeal.store_name,
-                        deal_url: targetModalDeal.deal_url,
-                        sale_price: Number(targetModalDeal.sale_price || 0),
-                        normal_price: Number(targetModalDeal.normal_price || 0),
-                        savings: Number(targetModalDeal.savings || 0),
-                        target_price: targetVal
-                    })
-                });
-
-                targetPriceModal.classList.add("hidden");
-                showToast(t("toastFavAdded"));
-                await loadFavorites();
-                await loadDeals(currentDealsExtra, false, true);
-            } catch (err) {
-                showToast(`${t("toastError")} ${err.message}`, "error");
-            }
-        });
-    }
-}
-
-// LOAD DEALS API
-async function loadDeals(extra = {}, append = false, silent = false) {
-    showError("");
-
-    if (!append && !silent) {
-        renderSkeletons(12);
-        lastDeals = [];
-        nextDealsPage = null;
-        currentDealsExtra = extra;
-        updateLoadMoreButton();
-    }
-
-    const pageToLoad = append ? nextDealsPage : 0;
-    if (pageToLoad === null) return;
-
-    const minDisc = extra.minDiscount ?? (minDiscountInput ? minDiscountInput.value : 10);
-    const maxDisc = extra.maxDiscount ?? (maxDiscountInput ? maxDiscountInput.value : 100);
-    const storeId = storeSelect ? storeSelect.value : "cheapshark_all";
-    const title = titleSearch ? titleSearch.value.trim() : "";
-    const hideOwned = hideOwnedCheckbox ? hideOwnedCheckbox.checked : false;
-
-    const params = new URLSearchParams();
-    params.append("min_discount", minDisc);
-    params.append("max_discount", maxDisc);
-    params.append("hide_owned", hideOwned ? "true" : "false");
-    params.append("page", pageToLoad);
-    params.append("page_size", 60);
-
-    if (storeId === "steam_direct") {
-        params.append("source", "steam");
-    } else if (storeId && storeId !== "cheapshark_all") {
-        params.append("store_id", storeId);
-    }
-
-    if (title) {
-        params.append("title", title);
-    }
-
-    if (extra.maxPrice !== undefined) {
-        params.append("max_price", extra.maxPrice);
-    }
-
-    if (extra.freeOnly) {
-        params.append("free_only", "true");
-    }
-
-    try {
-        const response = await api(`/api/deals?${params.toString()}`);
-        const newDeals = Array.isArray(response) ? response : (response.deals || []);
-        nextDealsPage = Array.isArray(response) ? null : response.next_page;
-
-        lastDeals = append ? [...lastDeals, ...newDeals] : newDeals;
-        renderDeals(lastDeals);
-    } catch (error) {
-        if (!append) {
-            if (dealsGrid) dealsGrid.innerHTML = "";
-            if (dealsCount) dealsCount.textContent = `0 ${t("games")}`;
-        }
-        showError(`${t("toastError")} ${error.message}`);
-        console.error("Deals error:", error);
-        updateLoadMoreButton();
-    }
-}
-
-function updateLoadMoreButton() {
-    if (!loadMoreBtn) return;
-    if (nextDealsPage === null) {
-        loadMoreBtn.classList.add("hidden");
-    } else {
-        loadMoreBtn.classList.remove("hidden");
-        loadMoreBtn.disabled = false;
-        loadMoreBtn.textContent = t("loadMore");
-    }
-}
-
-async function loadMoreDeals() {
-    if (nextDealsPage === null || !loadMoreBtn) return;
-    loadMoreBtn.disabled = true;
-    loadMoreBtn.textContent = t("loading");
-
-    await loadDeals(currentDealsExtra, true);
-}
-
-// FAVORITES
-async function loadFavorites() {
-    try {
-        const favorites = await api("/api/favorites");
-        cachedFavorites = favorites || [];
-
-        if (favCountBadge) favCountBadge.textContent = cachedFavorites.length;
-        if (favoritesCount) favoritesCount.textContent = `${cachedFavorites.length} ${t("games")}`;
-
-        if (!favoritesGrid) return;
-        favoritesGrid.innerHTML = "";
-
-        if (!cachedFavorites.length) {
-            favoritesGrid.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-icon">⭐</div>
-                    <h3>${t("noFavorites")}</h3>
-                    <button class="btn btn-secondary" onclick="document.querySelector('.tab-btn[data-tab=\\'deals\\']').click()">
-                        ${t("dealsHeading")}
-                    </button>
-                </div>
-            `;
-            return;
-        }
-
-        cachedFavorites.forEach(fav => {
-            const card = document.createElement("article");
-            card.className = "card";
-
-            const normalPrice = Number(fav.normal_price || 0);
-            const salePrice = Number(fav.sale_price || 0);
-            const targetPrice = fav.target_price !== null && fav.target_price !== undefined ? Number(fav.target_price) : null;
-            const savings = Math.round(Number(fav.savings || 0));
-            const isTargetReached = targetPrice !== null && salePrice <= targetPrice;
-
-            card.innerHTML = `
-                <div class="card-content">
-                    <div class="card-badges-row">
-                        <span class="floating-store" style="position:static; margin-bottom: 4px;">${fav.store_name}</span>
-                        ${savings > 0 ? `<span class="floating-discount" style="position:static; box-shadow:none;">-${savings}%</span>` : ""}
-                    </div>
-
-                    <h3 class="card-title">${fav.title}</h3>
-
-                    ${targetPrice !== null ? `
-                        <div class="target-badge ${isTargetReached ? "target-reached-badge" : ""}">
-                            ${isTargetReached ? t("targetReached") : `${t("targetSet")} ${money(targetPrice)}`}
-                        </div>
-                    ` : ""}
-
-                    <div class="card-pricing">
-                        ${normalPrice > salePrice ? `<span class="price-strike">${money(normalPrice)}</span>` : ""}
-                        <span class="price-current">${money(salePrice)}</span>
-                    </div>
-
-                    <div class="card-actions-bar">
-                        <a href="${fav.deal_url}" target="_blank" rel="noopener noreferrer" class="open-deal-btn">
-                            ${t("openDeal")} ↗
-                        </a>
-                        <button class="delete-btn" title="Удалить из избранного">
-                            🗑️
-                        </button>
-                    </div>
-                </div>
-            `;
-
-            card.querySelector(".delete-btn").addEventListener("click", async () => {
-                try {
-                    await api(`/api/favorites/${fav.id}`, { method: "DELETE" });
-                    showToast(t("toastFavRemoved"));
-                    await loadFavorites();
-                    if (Array.isArray(lastDeals)) {
-                        renderDeals(lastDeals);
-                    }
-                } catch (err) {
-                    showToast(`${t("toastError")} ${err.message}`, "error");
-                }
-            });
-
-            favoritesGrid.appendChild(card);
-        });
-    } catch (err) {
-        console.error("Favorites error:", err);
-    }
-}
-
-// OWNED GAMES / LIBRARY
-async function loadOwnedGames() {
-    try {
-        const games = await api("/api/owned-games");
-        cachedOwnedGames = games || [];
-
-        if (libraryCountBadge) libraryCountBadge.textContent = cachedOwnedGames.length;
-        if (libraryCount) libraryCount.textContent = `${cachedOwnedGames.length} ${t("games")}`;
-
-        renderLibraryList();
-    } catch (err) {
-        console.error("Library load error:", err);
-    }
-}
-
-function renderLibraryList(filterPlatform = "all", searchQuery = "") {
-    if (!ownedGrid) return;
-    ownedGrid.innerHTML = "";
-
-    let filtered = [...cachedOwnedGames];
-
-    if (filterPlatform && filterPlatform !== "all") {
-        filtered = filtered.filter(g => (g.platform || "").toLowerCase() === filterPlatform.toLowerCase());
-    }
-
-    if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        filtered = filtered.filter(g => (g.title || "").toLowerCase().includes(q));
-    }
-
-    if (!filtered.length) {
-        ownedGrid.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-icon">📚</div>
-                <h3>${cachedOwnedGames.length === 0 ? t("noOwnedGames") : t("noSearchResults")}</h3>
-                ${cachedOwnedGames.length === 0 ? `
-                    <button class="btn btn-secondary" onclick="document.querySelector('.tab-btn[data-tab=\\'sync\\']').click()">
-                        ${t("addOrSyncBtn")}
-                    </button>
-                ` : ""}
-            </div>
-        `;
-        return;
-    }
-
-    filtered.forEach(game => {
-        const card = document.createElement("article");
-        card.className = "lib-card";
-
-        const platform = (game.platform || "other").toLowerCase();
-        const platformClass = `platform-${platform}`;
-        const playtimeHours = (Number(game.playtime_minutes || 0) / 60).toFixed(1);
-
-        card.innerHTML = `
-            <div class="lib-header">
-                <span class="platform-pill ${platformClass}">${game.platform}</span>
-                <button class="delete-btn" style="width:30px;height:30px;font-size:13px;" title="Удалить">✕</button>
-            </div>
-            <h4>${game.title || game.platform_game_id}</h4>
-            <div class="lib-meta">
-                ${game.platform_game_id ? `<div>ID: ${game.platform_game_id}</div>` : ""}
-                ${Number(playtimeHours) > 0 ? `<div>⏱️ ${playtimeHours} ${t("hours")}</div>` : ""}
-            </div>
-        `;
-
-        card.querySelector(".delete-btn").addEventListener("click", async () => {
-            try {
-                await api(`/api/owned-games/${game.id}`, { method: "DELETE" });
-                showToast(t("toastGameDeleted"));
-                await loadOwnedGames();
-                await loadDeals(currentDealsExtra, false, true);
-            } catch (err) {
-                showToast(`${t("toastError")} ${err.message}`, "error");
-            }
-        });
-
-        ownedGrid.appendChild(card);
-    });
-}
-
-function setupLibraryFilters() {
-    const pills = document.querySelectorAll(".lib-pill");
-    const searchInput = document.getElementById("librarySearchInput");
-
-    let activePlatform = "all";
-
-    pills.forEach(pill => {
-        pill.addEventListener("click", () => {
-            pills.forEach(p => p.classList.remove("active"));
-            pill.classList.add("active");
-            activePlatform = pill.dataset.platform;
-            renderLibraryList(activePlatform, searchInput ? searchInput.value.trim() : "");
-        });
-    });
-
-    if (searchInput) {
-        searchInput.addEventListener("input", () => {
-            renderLibraryList(activePlatform, searchInput.value.trim());
-        });
-    }
-}
-
-// STEAM SYNC
-function setupSteamSync() {
-    const syncBtn = document.getElementById("syncSteamBtn");
-    const steamInput = document.getElementById("steamIdInput");
-    const statusText = document.getElementById("steamSyncStatus");
-
-    if (!syncBtn || !steamInput) return;
-
-    syncBtn.addEventListener("click", async () => {
-        const steamId = steamInput.value.trim();
-        if (!steamId) {
-            showToast(t("enterSteamId"), "error");
-            return;
-        }
-
-        syncBtn.disabled = true;
-        statusText.textContent = t("loading");
-        statusText.style.color = "var(--text-muted)";
-
-        try {
-            const res = await api("/api/steam/sync", {
-                method: "POST",
-                body: JSON.stringify({ steam_id: steamId })
-            });
-
-            statusText.textContent = `✓ ${t("toastSteamSynced")} ${res.games_count}`;
-            statusText.style.color = "var(--accent-green)";
-            showToast(`${t("toastSteamSynced")} ${res.games_count}`);
-
-            await loadOwnedGames();
-            await loadDeals(currentDealsExtra, false, true);
-        } catch (err) {
-            statusText.textContent = `✕ ${err.message}`;
-            statusText.style.color = "var(--accent-red)";
-            showToast(`${t("toastError")} ${err.message}`, "error");
-        } finally {
-            syncBtn.disabled = false;
-        }
-    });
-}
-
-// MANUAL ADD GAME
-function setupManualAdd() {
-    const form = document.getElementById("manualAddForm");
-    if (!form) return;
-
-    form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-
-        const platform = document.getElementById("manualPlatform").value;
-        const title = document.getElementById("manualTitle").value.trim();
-        const gameId = document.getElementById("manualGameId").value.trim();
-        const playtimeHours = Number(document.getElementById("manualPlaytime").value || 0);
-
-        if (!title) {
-            showToast(t("enterTitle"), "error");
-            return;
-        }
-
-        try {
-            await api("/api/owned-games/manual", {
-                method: "POST",
-                body: JSON.stringify({
-                    platform,
-                    title,
-                    platform_game_id: gameId || null,
-                    playtime_minutes: Math.round(playtimeHours * 60)
-                })
-            });
-
-            form.reset();
-            showToast(t("toastGameAdded"));
-            await loadOwnedGames();
-            await loadDeals(currentDealsExtra, false, true);
-        } catch (err) {
-            showToast(`${t("toastError")} ${err.message}`, "error");
-        }
-    });
-}
-
-// PRESETS
-function applyPreset(presetName) {
-    currentPreset = presetName;
-
-    document.querySelectorAll(".preset-btn").forEach(btn => {
-        btn.classList.toggle("active", btn.dataset.preset === presetName);
-    });
-
-    if (presetName === "all") {
-        if (minDiscountInput) minDiscountInput.value = 10;
-        if (maxDiscountInput) maxDiscountInput.value = 100;
-        loadDeals();
-    } else if (presetName === "90") {
-        if (minDiscountInput) minDiscountInput.value = 90;
-        if (maxDiscountInput) maxDiscountInput.value = 100;
-        loadDeals();
-    } else if (presetName === "75") {
-        if (minDiscountInput) minDiscountInput.value = 75;
-        if (maxDiscountInput) maxDiscountInput.value = 100;
-        loadDeals();
-    } else if (presetName === "under5") {
-        if (minDiscountInput) minDiscountInput.value = 10;
-        if (maxDiscountInput) maxDiscountInput.value = 100;
-        loadDeals({ maxPrice: 5 });
-    } else if (presetName === "free") {
-        if (minDiscountInput) minDiscountInput.value = 0;
-        if (maxDiscountInput) maxDiscountInput.value = 100;
-        loadDeals({ freeOnly: true });
-    }
-}
-
-// SUPPORT MODAL & COPY TO CLIPBOARD
-function setupSupportModal() {
-    const supportBtn = document.getElementById("supportBtn");
-    const closeBtn = document.getElementById("closeSupportBtn");
-
-    if (supportBtn && supportModal) {
-        supportBtn.addEventListener("click", () => {
-            supportModal.classList.remove("hidden");
-        });
-    }
-
-    if (closeBtn && supportModal) {
-        closeBtn.addEventListener("click", () => {
-            supportModal.classList.add("hidden");
-        });
-    }
-
-    if (supportModal) {
-        supportModal.addEventListener("click", (e) => {
-            if (e.target === supportModal) {
-                supportModal.classList.add("hidden");
-            }
-        });
-    }
-
-    document.querySelectorAll("[data-copy]").forEach(btn => {
-        btn.addEventListener("click", async () => {
-            const textToCopy = btn.dataset.copy;
-            try {
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    await navigator.clipboard.writeText(textToCopy);
-                } else {
-                    const temp = document.createElement("input");
-                    temp.value = textToCopy;
-                    document.body.appendChild(temp);
-                    temp.select();
-                    document.execCommand("copy");
-                    temp.remove();
-                }
-
-                btn.classList.add("copied");
-                const textSpan = btn.querySelector(".copy-text");
-                if (textSpan) textSpan.textContent = t("copiedBtn");
-                showToast(t("toastCopied"));
-
-                setTimeout(() => {
-                    btn.classList.remove("copied");
-                    if (textSpan) textSpan.textContent = t("copyBtn");
-                }, 2000);
-            } catch (err) {
-                console.error("Copy failed:", err);
-            }
-        });
-    });
-}
-
-// SEARCH WITH DEBOUNCE
-function setupSearch() {
-    if (!titleSearch) return;
-
-    titleSearch.addEventListener("input", () => {
-        if (clearSearchBtn) {
-            clearSearchBtn.classList.toggle("hidden", !titleSearch.value);
-        }
-
-        clearTimeout(searchDebounceTimer);
-        searchDebounceTimer = setTimeout(() => {
-            loadDeals();
-        }, 450);
-    });
-
-    titleSearch.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-            clearTimeout(searchDebounceTimer);
-            loadDeals();
-        }
-    });
-
-    if (clearSearchBtn) {
-        clearSearchBtn.addEventListener("click", () => {
-            titleSearch.value = "";
-            clearSearchBtn.classList.add("hidden");
-            loadDeals();
-        });
-    }
-}
-
-// RESET FILTERS
-function setupResetFilters() {
-    if (!resetFiltersBtn) return;
-
-    resetFiltersBtn.addEventListener("click", () => {
-        if (titleSearch) {
-            titleSearch.value = "";
-            if (clearSearchBtn) clearSearchBtn.classList.add("hidden");
-        }
-        if (minDiscountInput) minDiscountInput.value = 10;
-        if (maxDiscountInput) maxDiscountInput.value = 100;
-        if (storeSelect) storeSelect.value = "cheapshark_all";
-        if (sortSelect) sortSelect.value = "savings";
-        if (hideOwnedCheckbox) hideOwnedCheckbox.checked = false;
-
-        applyPreset("all");
-    });
-}
-
-// LANGUAGE SWITCHER
-function setupLanguage() {
-    const langBtn = document.getElementById("langToggleBtn");
-    if (!langBtn) return;
-
-    langBtn.addEventListener("click", () => {
-        currentLanguage = currentLanguage === "ru" ? "en" : "ru";
-        localStorage.setItem("language", currentLanguage);
-
-        applyLanguage();
-        if (Array.isArray(lastDeals)) {
-            renderDeals(lastDeals);
-        }
-        renderLibraryList();
-        loadFavorites();
-    });
-}
-
-// INITIALIZATION
-(async function init() {
-    applyLanguage();
-    setupTabs();
-    setupLanguage();
-    setupSupportModal();
-    setupTargetPriceModal();
-    setupSearch();
-    setupResetFilters();
-    setupLibraryFilters();
-    setupSteamSync();
-    setupManualAdd();
-
-    // Event listeners
-    if (loadDealsBtn) {
-        loadDealsBtn.addEventListener("click", () => loadDeals());
-    }
-
-    if (loadMoreBtn) {
-        loadMoreBtn.addEventListener("click", loadMoreDeals);
-    }
-
-    if (sortSelect) {
-        sortSelect.addEventListener("change", () => renderDeals(lastDeals));
-    }
-
-    if (hideOwnedCheckbox) {
-        hideOwnedCheckbox.addEventListener("change", () => loadDeals());
-    }
-
-    if (storeSelect) {
-        storeSelect.addEventListener("change", () => loadDeals());
-    }
-
-    document.querySelectorAll("[data-preset]").forEach(btn => {
-        btn.addEventListener("click", () => applyPreset(btn.dataset.preset));
-    });
-
-    // Initial data loading
-    await loadStores();
-    await loadFavorites();
-    await loadOwnedGames();
+async function accountAction() {
+  if (!state.me) {
+    login();
+    return;
+  }
+  $("account").disabled = true;
+  try {
+    await api("/auth/logout", "POST");
+    clearPersonal();
+    renderPersonal();
+    renderAccount();
     await loadDeals();
-})();
+  } catch {
+    toast("actionFailed");
+  } finally {
+    renderAccount();
+  }
+}
+function bindForm(id, path, payload, onSuccess) {
+  const form = $(id);
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!state.me) {
+      login();
+      return;
+    }
+    const data = new FormData(form);
+    const btn = form.querySelector("button.primary"),
+      feedback = form.querySelector(".feedback");
+    btn.disabled = true;
+    feedback.classList.remove("error");
+    feedback.textContent = t("busy");
+    try {
+      const result = await api(path, "POST", payload(data));
+      onSuccess(result, feedback);
+      form.reset();
+      await Promise.all([loadPersonal("library"), loadDeals()]);
+    } catch {
+      feedback.classList.add("error");
+      feedback.textContent = t(
+        id === "steamForm" ? "steamError" : "actionFailed",
+      );
+    } finally {
+      btn.disabled = false;
+    }
+  });
+}
+$("account").addEventListener("click", accountAction);
+$("language").addEventListener("click", () => {
+  language = language === "ru" ? "en" : "ru";
+  write(localStorage, "language", language);
+  applyLanguage();
+  setTab();
+});
+$("notice")
+  .querySelector("button")
+  .addEventListener("click", () => notice(null));
+$("filters").addEventListener("submit", (e) => {
+  e.preventDefault();
+  loadDeals();
+});
+$("filters").addEventListener("input", () => $("max").setCustomValidity(""));
+$("query").addEventListener("input", () => {
+  requestController?.abort();
+  requestId++;
+  state.next = null;
+  state.deals = [];
+  state.load = "loading";
+  renderDeals();
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => loadDeals(), 300);
+});
+$("toggleFilters").addEventListener("click", () =>
+  setAdvanced($("advanced").hidden),
+);
+$("reset").addEventListener("click", resetFilters);
+$("more").addEventListener("click", () => loadDeals(true));
+$("sort").addEventListener("change", renderDeals);
+$("store").addEventListener("change", () => loadDeals());
+$("owned").addEventListener("change", () => {
+  if (!state.me && $("owned").checked) {
+    login();
+    return;
+  }
+  loadDeals();
+});
+for (const el of [$("min"), $("max")])
+  el.addEventListener("input", () => showPreset(""));
+document.querySelectorAll("[data-preset]").forEach((btn) =>
+  btn.addEventListener("click", () => {
+    const preset = btn.dataset.preset;
+    showPreset(preset);
+    $("min").value =
+      preset === "free" ? 0 : ["75", "90"].includes(preset) ? preset : 10;
+    $("max").value = 100;
+    loadDeals();
+  }),
+);
+$("librarySearch").addEventListener("input", renderPersonal);
+$("libraryPlatform").addEventListener("change", renderPersonal);
+$("cancel").addEventListener("click", () => $("priceDialog").close());
+$("priceDialog").addEventListener("close", () => {
+  if (targetOpener?.isConnected) targetOpener.focus();
+  else if (dialogDeal) focusAction(dialogDeal, "target");
+});
+$("priceForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = $("priceForm").querySelector("button.primary");
+  btn.disabled = true;
+  try {
+    await api(
+      "/api/favorites",
+      "POST",
+      favoriteBody(dialogDeal, Number($("targetPrice").value)),
+    );
+    await loadPersonal("favorites");
+    $("priceDialog").close();
+    toast("saved");
+  } catch {
+    $("priceForm").querySelector(".feedback").textContent = t("actionFailed");
+  } finally {
+    btn.disabled = false;
+  }
+});
+bindForm(
+  "steamForm",
+  "/api/steam/sync",
+  (d) => ({ steam_id: d.get("steam_id").trim() }),
+  (result, feedback) => {
+    feedback.textContent = t("imported") + " · " + result.games_count;
+  },
+);
+bindForm(
+  "manualForm",
+  "/api/owned-games/manual",
+  (d) => ({
+    title: d.get("title").trim(),
+    platform: d.get("platform"),
+    platform_game_id: d.get("platform_game_id").trim() || null,
+    playtime_minutes: Math.round(Number(d.get("hours")) * 60),
+  }),
+  (result, feedback) => {
+    feedback.textContent = t("saved");
+  },
+);
+window.addEventListener("hashchange", setTab);
+applyLanguage();
+setTab();
+const address = new URL(location.href);
+if (address.searchParams.has("auth_error")) {
+  notice(
+    address.searchParams.get("auth_error") === "unavailable"
+      ? "unavailable"
+      : "authFailed",
+  );
+  address.searchParams.delete("auth_error");
+  history.replaceState(null, "", address);
+}
+bootstrap();
