@@ -13,6 +13,8 @@ game_deals.db
 *.db
 *.sqlite
 *.sqlite3
+backups/
+*.dump
 
 # Environment variables
 .env

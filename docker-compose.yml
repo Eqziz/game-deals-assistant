@@ -1,20 +1,35 @@
-version: '3.8'
-
 services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: gamedeals
+      POSTGRES_DB: gamedeals
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - game_deals_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gamedeals -d gamedeals"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
   web:
     build: .
-    container_name: game-deals-assistant
     ports:
       - "8000:8000"
     environment:
-      - STEAM_API_KEY=${STEAM_API_KEY}
-      - DEBUG=false
-    volumes:
-      - ./game_deals.db:/app/game_deals.db
+      DATABASE_URL: postgresql://gamedeals@db:5432/gamedeals
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8000}
+      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      STEAM_API_KEY: ${STEAM_API_KEY:-}
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/api/health', timeout=5)"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 5s
+
+volumes:
+  game_deals_pg:
