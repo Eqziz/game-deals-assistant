@@ -50,7 +50,7 @@ def fetch_stores(force_refresh: bool = False) -> List[Dict]:
         return _stores_cache
 
     except requests.RequestException as error:
-        logger.error(f"Error fetching CheapShark stores: {error}")
+        logger.warning("CheapShark stores unavailable (%s)", type(error).__name__)
         if _stores_cache:
             return _stores_cache
         raise
@@ -112,7 +112,7 @@ def fetch_deals(
             response.raise_for_status()
             raw_deals = response.json()
         except requests.RequestException as error:
-            logger.error(f"CheapShark deals request failed: {error}")
+            logger.warning("CheapShark deals unavailable (%s)", type(error).__name__)
             raise
 
         if not raw_deals:

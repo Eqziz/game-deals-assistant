@@ -17,6 +17,15 @@ HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9",
 }
+STEAM_RESULTS_PER_PAGE = 50
+
+
+class SteamConfigurationError(RuntimeError):
+    """Steam account synchronization is disabled."""
+
+
+class PrivateSteamLibrary(ValueError):
+    """Steam did not disclose the user's game list."""
 
 
 def cents_to_money(value) -> float:
@@ -27,15 +36,40 @@ def cents_to_money(value) -> float:
         return 0.0
 
 
-def parse_price(txt: str) -> float:
-    """Parse price string like '$19.99' or 'Free' to float."""
-    if not txt:
+def parse_price(txt: str) -> Optional[float]:
+    """Parse a USD storefront amount without treating missing prices as free."""
+    price = txt.strip().lower()
+    if price in {"free", "free to play"}:
         return 0.0
-    cleaned = txt.replace("Free", "0").replace("$", "").replace("USD", "").replace(",", ".").strip()
-    try:
-        return round(float(cleaned), 2)
-    except (ValueError, TypeError):
-        return 0.0
+    amount = re.fullmatch(r"(?:usd\s*)?\$?\s*(\d+(?:,\d{3})*(?:\.\d{1,2})?)(?:\s*usd)?", price)
+    if not amount:
+        return None
+    return float(amount.group(1).replace(",", ""))
+
+
+def _search_rows(params, start, count):
+    """Steam rounds small result windows. Slice deterministic 50-row pages locally."""
+    stop = start + count
+    rows = []
+    for offset in range(start - start % STEAM_RESULTS_PER_PAGE, stop, STEAM_RESULTS_PER_PAGE):
+        response = requests.get(
+            STEAM_SEARCH_URL, params={
+                **params, "infinite": 1, "count": STEAM_RESULTS_PER_PAGE,
+                "page": offset // STEAM_RESULTS_PER_PAGE + 1,
+            }, headers=HEADERS, timeout=15,
+        )
+        response.raise_for_status()
+        data = response.json()
+        if not isinstance(data, dict) or not data.get("success") or data.get("start") != offset:
+            raise requests.RequestException("Invalid Steam search response")
+        total = data.get("total_count")
+        if not isinstance(total, int) or not isinstance(data.get("results_html"), str):
+            raise requests.RequestException("Invalid Steam search results")
+        page_rows = BeautifulSoup(data["results_html"], "html.parser").select("a.search_result_row")
+        rows.extend(page_rows[max(0, start - offset):stop - offset])
+        if offset + len(page_rows) >= total or len(page_rows) < STEAM_RESULTS_PER_PAGE:
+            return rows, stop < offset + len(page_rows)
+    return rows, stop < total
 
 
 def fetch_steam_deals(
@@ -56,8 +90,6 @@ def fetch_steam_deals(
     start = max(0, page) * page_size
     params = {
         "specials": "1",
-        "start": start,
-        "count": page_size,
         "cc": cc,
         "l": language,
     }
@@ -71,10 +103,11 @@ def fetch_steam_deals(
         params["maxprice"] = str(int(max_price))
 
     try:
-        response = requests.get(STEAM_SEARCH_URL, params=params, headers=HEADERS, timeout=15)
-        response.raise_for_status()
+        rows, has_more = _search_rows(params, start, page_size)
     except requests.RequestException as error:
-        logger.error(f"Error requesting Steam Store search: {error}")
+        logger.warning("Steam store search unavailable (%s)", type(error).__name__)
+        if page:
+            raise
         # Fall back to featured specials if search fails
         fallback_specials = fetch_steam_specials(
             min_discount=min_discount,
@@ -86,12 +119,9 @@ def fetch_steam_deals(
             language=language,
         )
         return {
-            "deals": fallback_specials,
+            "deals": fallback_specials[:page_size],
             "next_page": None,
         }
-
-    soup = BeautifulSoup(response.text, "html.parser")
-    rows = soup.select("a.search_result_row")
 
     results: List[Dict] = []
 
@@ -117,6 +147,10 @@ def fetch_steam_deals(
         orig_price = parse_price(price_orig_el.text if price_orig_el else "")
         sale_price = parse_price(price_final_el.text if price_final_el else "")
 
+        if sale_price is None:
+            continue
+        if orig_price is None:
+            orig_price = sale_price
         if discount == 0 and orig_price > sale_price > 0:
             discount = int(round((1 - sale_price / orig_price) * 100))
 
@@ -171,7 +205,6 @@ def fetch_steam_deals(
             "deal_rating": None,
         })
 
-    has_more = len(rows) == page_size
     next_page = page + 1 if has_more else None
 
     logger.info(f"Fetched {len(results)} Steam Store deals for page {page}")
@@ -200,8 +233,8 @@ def fetch_steam_specials(
         )
         r.raise_for_status()
     except requests.RequestException as e:
-        logger.error(f"Error fetching Steam specials: {e}")
-        return []
+        logger.warning("Steam featured deals unavailable (%s)", type(e).__name__)
+        raise
 
     specials = r.json().get("specials", {}).get("items", [])
     out = []
@@ -220,7 +253,7 @@ def fetch_steam_specials(
         final_price = cents_to_money(item.get("final_price"))
         normal_price = cents_to_money(item.get("original_price"))
 
-        if normal_price <= 0 and final_price > 0 and discount > 0:
+        if normal_price <= 0 and final_price > 0 and 0 < discount < 100:
             normal_price = round(final_price / (1 - discount / 100), 2)
 
         if max_price is not None and final_price > float(max_price):
@@ -257,7 +290,7 @@ def fetch_owned_steam_games(steam_id: str, api_key: Optional[str] = None) -> Lis
 
     if not api_key:
         logger.error("STEAM_API_KEY is not set")
-        raise ValueError("STEAM_API_KEY is not set. Please set it in your environment variables.")
+        raise SteamConfigurationError("Steam sync is unavailable.")
 
     params = {
         "key": api_key,
@@ -271,11 +304,14 @@ def fetch_owned_steam_games(steam_id: str, api_key: Optional[str] = None) -> Lis
         r = requests.get(STEAM_OWNED_GAMES_URL, params=params, headers=HEADERS, timeout=25)
         r.raise_for_status()
     except requests.RequestException as e:
-        logger.error(f"Error fetching Steam owned games: {e}")
+        logger.warning("Steam games request failed (%s)", type(e).__name__)
         raise
 
     response_data = r.json()
-    games = response_data.get("response", {}).get("games", [])
+    library = response_data.get("response")
+    if not isinstance(library, dict) or "game_count" not in library:
+        raise PrivateSteamLibrary()
+    games = library.get("games", [])
 
     result = [
         {
