@@ -1,6 +1,8 @@
 "use strict";
 
 const copy = {
+  privacy: ["Конфиденциальность", "Privacy policy"],
+  terms: ["Условия использования", "Terms of use"],
   skip: ["К содержанию", "Skip to content"],
   login: ["Войти через Google", "Sign in with Google"],
   logout: ["Выйти", "Sign out"],

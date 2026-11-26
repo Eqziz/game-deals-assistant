@@ -556,3 +556,16 @@ dialog::backdrop {
     font-weight: 600;
   }
 }
+.policy-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding-block: 1.25rem;
+  border-top: 1px solid var(--line);
+}
+.policy {
+  max-width: 46rem;
+}
+.policy p {
+  margin: 1rem 0;
+}
