@@ -4,12 +4,11 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import urlsplit
 from fastapi import Depends, FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 import requests
 
 from .auth import install_auth, optional_user, require_user
+from .frontend import FrontendFiles
 from .db import (
     init_db,
     check_db,
@@ -49,7 +48,8 @@ app = FastAPI(
 )
 
 install_auth(app)
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+frontend = FrontendFiles(STATIC_DIR)
+app.mount("/static", frontend, name="static")
 
 
 class InputModel(BaseModel):
@@ -91,7 +91,7 @@ class SteamSyncRequest(InputModel):
 
 @app.get("/")
 def index():
-    return FileResponse(STATIC_DIR / "index.html")
+    return frontend.page("index.html")
 
 
 @app.get("/api/ready")
