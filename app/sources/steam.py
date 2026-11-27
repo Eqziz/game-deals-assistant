@@ -1,5 +1,6 @@
 import logging
 import os
+import math
 import re
 from typing import Dict, List, Optional
 from bs4 import BeautifulSoup
@@ -8,9 +9,7 @@ import requests
 logger = logging.getLogger(__name__)
 
 STEAM_SEARCH_URL = "https://store.steampowered.com/search/results/"
-STEAM_FEATURED_URL = "https://store.steampowered.com/api/featuredcategories"
 STEAM_OWNED_GAMES_URL = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/"
-STEAM_ICON_URL = "https://www.cheapshark.com/img/stores/icons/0.png"
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -26,14 +25,6 @@ class SteamConfigurationError(RuntimeError):
 
 class PrivateSteamLibrary(ValueError):
     """Steam did not disclose the user's game list."""
-
-
-def cents_to_money(value) -> float:
-    """Convert cents to money (dollars)."""
-    try:
-        return round(float(value) / 100, 2)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def parse_price(txt: str) -> Optional[float]:
@@ -67,8 +58,8 @@ def _search_rows(params, start, count):
             raise requests.RequestException("Invalid Steam search results")
         page_rows = BeautifulSoup(data["results_html"], "html.parser").select("a.search_result_row")
         rows.extend(page_rows[max(0, start - offset):stop - offset])
-        if offset + len(page_rows) >= total or len(page_rows) < STEAM_RESULTS_PER_PAGE:
-            return rows, stop < offset + len(page_rows)
+        if offset + STEAM_RESULTS_PER_PAGE >= total:
+            return rows, stop < total
     return rows, stop < total
 
 
@@ -100,28 +91,9 @@ def fetch_steam_deals(
     if free_only:
         params["maxprice"] = "free"
     elif max_price is not None:
-        params["maxprice"] = str(int(max_price))
+        params["maxprice"] = str(math.ceil(max_price))
 
-    try:
-        rows, has_more = _search_rows(params, start, page_size)
-    except requests.RequestException as error:
-        logger.warning("Steam store search unavailable (%s)", type(error).__name__)
-        if page:
-            raise
-        # Fall back to featured specials if search fails
-        fallback_specials = fetch_steam_specials(
-            min_discount=min_discount,
-            max_discount=max_discount,
-            title=title,
-            max_price=max_price,
-            free_only=free_only,
-            cc=cc,
-            language=language,
-        )
-        return {
-            "deals": fallback_specials[:page_size],
-            "next_page": None,
-        }
+    rows, has_more = _search_rows(params, start, page_size)
 
     results: List[Dict] = []
 
@@ -151,7 +123,7 @@ def fetch_steam_deals(
             continue
         if orig_price is None:
             orig_price = sale_price
-        if discount == 0 and orig_price > sale_price > 0:
+        if discount == 0 and orig_price > sale_price >= 0:
             discount = int(round((1 - sale_price / orig_price) * 100))
 
         if not (min_discount <= discount <= max_discount):
@@ -191,7 +163,7 @@ def fetch_steam_deals(
             "platform_game_id": str(appid),
             "store_id": "steam",
             "store_name": "Steam",
-            "store_icon": STEAM_ICON_URL,
+            "store_icon": None,
             "sale_price": sale_price,
             "normal_price": orig_price if orig_price > 0 else sale_price,
             "savings": discount,
@@ -212,76 +184,6 @@ def fetch_steam_deals(
         "deals": results,
         "next_page": next_page,
     }
-
-
-def fetch_steam_specials(
-    min_discount: int = 10,
-    max_discount: int = 100,
-    title: Optional[str] = None,
-    max_price: Optional[float] = None,
-    free_only: bool = False,
-    cc: str = "us",
-    language: str = "english",
-) -> List[Dict]:
-    """Fetch featured specials from Steam Store API (fallback)."""
-    try:
-        r = requests.get(
-            STEAM_FEATURED_URL,
-            params={"cc": cc, "l": language},
-            headers=HEADERS,
-            timeout=20,
-        )
-        r.raise_for_status()
-    except requests.RequestException as e:
-        logger.warning("Steam featured deals unavailable (%s)", type(e).__name__)
-        raise
-
-    specials = r.json().get("specials", {}).get("items", [])
-    out = []
-
-    for item in specials:
-        discount = int(item.get("discount_percent") or 0)
-        if discount < min_discount or discount > max_discount:
-            continue
-
-        app_id = item.get("id")
-        game_title = item.get("name") or "Unknown game"
-
-        if title and title.lower() not in game_title.lower():
-            continue
-
-        final_price = cents_to_money(item.get("final_price"))
-        normal_price = cents_to_money(item.get("original_price"))
-
-        if normal_price <= 0 and final_price > 0 and 0 < discount < 100:
-            normal_price = round(final_price / (1 - discount / 100), 2)
-
-        if max_price is not None and final_price > float(max_price):
-            continue
-
-        if free_only and final_price != 0:
-            continue
-
-        out.append({
-            "title": game_title,
-            "platform_game_id": str(app_id),
-            "store_id": "steam",
-            "store_name": "Steam",
-            "store_icon": STEAM_ICON_URL,
-            "sale_price": final_price,
-            "normal_price": normal_price,
-            "savings": discount,
-            "thumb": item.get("large_capsule_image") or item.get("small_capsule_image") or "",
-            "steam_app_id": str(app_id),
-            "deal_url": f"https://store.steampowered.com/app/{app_id}",
-            "source": "steam",
-            "steam_rating_percent": None,
-            "steam_rating_text": None,
-            "metacritic_score": None,
-            "deal_rating": None,
-        })
-
-    return out
 
 
 def fetch_owned_steam_games(steam_id: str, api_key: Optional[str] = None) -> List[Dict]:
