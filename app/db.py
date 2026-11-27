@@ -127,9 +127,6 @@ def delete_favorite_by_url(deal_url, user_id):
         return conn.execute("DELETE FROM favorites WHERE deal_url = %s AND user_id = %s", (deal_url, user_id)).rowcount > 0
 
 
-UPSERT_ACCOUNT = """INSERT INTO connected_accounts (user_id, platform, platform_user_id)
-    VALUES (%s, %s, %s) ON CONFLICT (user_id, platform) DO UPDATE SET platform_user_id = excluded.platform_user_id"""
-
 UPSERT_GAME = """INSERT INTO owned_games (user_id, platform, platform_game_id, title, playtime_minutes)
     VALUES (%s, %s, %s, %s, %s) ON CONFLICT (user_id, platform, platform_game_id)
     DO UPDATE SET title = excluded.title, playtime_minutes = excluded.playtime_minutes"""
@@ -137,12 +134,53 @@ UPSERT_GAME = """INSERT INTO owned_games (user_id, platform, platform_game_id, t
 
 def list_connected_accounts(user_id):
     with get_connection() as conn:
-        return conn.execute("SELECT * FROM connected_accounts WHERE user_id = %s ORDER BY platform", (user_id,)).fetchall()
+        return conn.execute("""SELECT id, platform, platform_user_id,
+            coalesce(display_name, platform_user_id) AS display_name, verified_at
+            FROM connected_accounts WHERE user_id = %s ORDER BY platform""", (user_id,)).fetchall()
 
 
-def save_account(user_id, platform, profile):
+def create_link_flow(session, platform):
+    state = secrets.token_urlsafe(32)
     with get_connection() as conn:
-        conn.execute(UPSERT_ACCOUNT, (user_id, platform, profile))
+        conn.execute("DELETE FROM game_link_flows WHERE expires_at <= now()")
+        row = conn.execute("""INSERT INTO game_link_flows(state_hash, session_hash, platform, expires_at)
+            SELECT %s, token_hash, %s, least(expires_at, now() + interval '10 minutes')
+            FROM sessions WHERE token_hash = %s AND expires_at > now()
+            ON CONFLICT(session_hash, platform) DO UPDATE SET
+                state_hash = excluded.state_hash, expires_at = excluded.expires_at
+            RETURNING state_hash""", (_digest(state), platform, _digest(session))).fetchone()
+        return state if row else None
+
+
+def consume_link_flow(session, platform, state):
+    with get_connection() as conn:
+        return bool(conn.execute("""DELETE FROM game_link_flows f USING sessions s
+            WHERE f.session_hash = s.token_hash AND f.state_hash = %s AND f.session_hash = %s
+              AND f.platform = %s AND f.expires_at > now() AND s.expires_at > now()
+            RETURNING s.user_id""", (_digest(state), _digest(session), platform)).fetchone())
+
+
+def save_verified_account(session, platform, subject, display_name):
+    with get_connection() as conn:
+        user = conn.execute("""SELECT user_id FROM sessions
+            WHERE token_hash = %s AND expires_at > now() FOR SHARE""", (_digest(session),)).fetchone()
+        if not user:
+            return False
+        conn.execute("""INSERT INTO connected_accounts
+            (user_id, platform, platform_user_id, display_name, verified_at)
+            VALUES (%s, %s, %s, %s, now())
+            ON CONFLICT (user_id, platform) DO UPDATE SET
+                platform_user_id = excluded.platform_user_id,
+                display_name = excluded.display_name, verified_at = now()""",
+            (user["user_id"], platform, subject, display_name))
+        return True
+
+
+def verified_steam_id(user_id):
+    with get_connection() as conn:
+        row = conn.execute("""SELECT platform_user_id FROM connected_accounts
+            WHERE platform = 'steam' AND user_id = %s AND verified_at IS NOT NULL""", (user_id,)).fetchone()
+        return row["platform_user_id"] if row else None
 
 
 def delete_account(user_id, account_id):
@@ -159,14 +197,19 @@ def upsert_owned_game(user_id, platform, platform_game_id, title="", playtime_mi
 
 
 def save_steam_library(user_id, steam_id, games):
-    """Commit the Steam account and its games together on successful import."""
+    """Recheck the verified link after the external request, before committing games."""
     with get_connection() as conn:
-        conn.execute(UPSERT_ACCOUNT, (user_id, "steam", steam_id))
+        linked = conn.execute("""SELECT id FROM connected_accounts WHERE user_id = %s
+            AND platform = 'steam' AND platform_user_id = %s AND verified_at IS NOT NULL
+            FOR SHARE""", (user_id, steam_id)).fetchone()
+        if not linked:
+            return False
         with conn.cursor() as cur:
             cur.executemany(UPSERT_GAME, [
                 (user_id, "steam", str(g["platform_game_id"]), g.get("title") or "", g.get("playtime_minutes") or 0)
                 for g in games
             ])
+        return True
 
 
 def list_owned_games(user_id):

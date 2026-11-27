@@ -30,7 +30,7 @@ google = oauth.register(
 )
 
 
-def _configured():
+def valid_public_origin():
     try:
         origin = urlsplit(PUBLIC_BASE_URL)
         secure = origin.scheme == "https" or (
@@ -39,10 +39,13 @@ def _configured():
         return bool(
             origin.hostname and secure and not origin.username and not origin.password
             and not origin.path and not origin.query and not origin.fragment
-            and google.client_id and google.client_secret and len(SESSION_SECRET) >= 32
         )
     except ValueError:
         return False
+
+
+def _configured():
+    return bool(valid_public_origin() and google.client_id and google.client_secret and len(SESSION_SECRET) >= 32)
 
 
 def safe_next(value):
@@ -68,7 +71,7 @@ class _RedactCallbackQuery(logging.Filter):
         args = record.args
         if isinstance(args, tuple) and len(args) == 5 and isinstance(args[2], str):
             path = args[2].split("?", 1)[0]
-            if path == "/auth/callback":
+            if path == "/auth/callback" or path.startswith("/auth/game/"):
                 record.args = (*args[:2], path, *args[3:])
         return True
 

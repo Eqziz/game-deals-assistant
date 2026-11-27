@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 import requests
 
 from .auth import install_auth, optional_user, require_user
+from .game_accounts import router as game_accounts_router
 from .frontend import FrontendFiles
 from .db import (
     init_db,
@@ -19,16 +20,16 @@ from .db import (
     favorite_deal_urls,
     save_steam_library,
     list_connected_accounts,
-    save_account,
+    verified_steam_id,
     delete_account,
     upsert_owned_game,
     list_owned_games,
     delete_owned_game,
     owned_game_keys,
 )
-from .sources.cheapshark import fetch_deals as fetch_cheapshark_deals, fetch_stores
+from .sources.catalog import fetch_catalog_deals, fetch_stores
 from .sources.steam import (
-    PrivateSteamLibrary, SteamConfigurationError, fetch_owned_steam_games, fetch_steam_deals,
+    PrivateSteamLibrary, SteamConfigurationError, fetch_owned_steam_games,
 )
 
 logger = logging.getLogger(__name__)
@@ -44,12 +45,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Game Deals Assistant",
-    description="Track discounts across Steam, CheapShark, manage game library and favorites.",
+    description="Track discounts across Steam, GOG, and Epic Games Store, connect gaming profiles, and manage your library and favorites.",
     version="1.0.0",
     lifespan=lifespan,
 )
 
 install_auth(app)
+app.include_router(game_accounts_router)
 frontend = FrontendFiles(STATIC_DIR)
 app.mount("/static", frontend, name="static")
 
@@ -88,12 +90,7 @@ class ManualOwnedGameCreate(InputModel):
 
 
 class SteamSyncRequest(InputModel):
-    steam_id: str = Field(pattern=r"^[0-9]{17}$")
-
-
-class GameProfile(InputModel):
-    platform: str = Field(min_length=1, max_length=64)
-    platform_user_id: str = Field(min_length=1, max_length=512)
+    model_config = ConfigDict(extra="forbid")
 
 
 @app.get("/")
@@ -124,20 +121,10 @@ def me(user=Depends(optional_user)):
 
 @app.get("/api/stores")
 def stores():
-    base_sources = [
-        {"store_id": "steam_direct", "store_name": "Steam Direct", "icon_url": None},
-        {"store_id": "cheapshark_all", "store_name": "All PC Stores", "icon_url": None},
-    ]
-
-    try:
-        cheapshark_stores = fetch_stores()
-    except requests.RequestException as error:
-        logger.warning("Could not load CheapShark stores (%s)", type(error).__name__)
-        cheapshark_stores = []
-
+    all_stores = fetch_stores()
     return {
-        "featured": base_sources,
-        "all": base_sources + cheapshark_stores,
+        "featured": all_stores,
+        "all": all_stores,
     }
 
 
@@ -166,7 +153,14 @@ def mark_deals(deals, user_id: Optional[int], hide_owned: bool = False):
         ).lower()
 
         title = (deal.get("title") or "").strip().lower()
-        platform = "steam" if "steam" in store_name or source == "steam" else "unknown"
+        if "steam" in store_name or source == "steam":
+            platform = "steam"
+        elif "gog" in store_name or source == "gog":
+            platform = "gog"
+        elif "epic" in store_name or source == "epic":
+            platform = "epic"
+        else:
+            platform = "unknown"
 
         is_owned = False
         if platform_game_id and (platform, platform_game_id) in keys:
@@ -202,36 +196,18 @@ def deals(
     user_id = user["id"] if user else None
 
     try:
-        if source == "steam" or store_id == "steam_direct":
-            steam_result = fetch_steam_deals(
-                min_discount=min_discount,
-                max_discount=max_discount,
-                title=title,
-                max_price=max_price,
-                free_only=free_only,
-                page=page,
-                page_size=page_size,
-                cc="us",
-                language="english",
-            )
+        effective_store = store_id or ("steam" if source == "steam" else None)
+        if effective_store == "steam_direct":
+            effective_store = "steam"
 
-            marked = mark_deals(steam_result["deals"], user_id, hide_owned=hide_owned)
-
-            return {
-                "deals": marked,
-                "next_page": steam_result["next_page"],
-            }
-
-        real_store_id = None if store_id in (None, "", "cheapshark_all") else store_id
-
-        loaded = fetch_cheapshark_deals(
+        loaded = fetch_catalog_deals(
             min_discount=min_discount,
             max_discount=max_discount,
-            store_id=real_store_id,
+            store_id=effective_store,
             title=title,
             max_price=max_price,
             free_only=free_only,
-            page_number=page,
+            page=page,
             page_size=page_size,
         )
 
@@ -240,6 +216,7 @@ def deals(
         return {
             "deals": marked,
             "next_page": loaded["next_page"],
+            "unavailable_stores": loaded.get("unavailable_stores", []),
         }
 
     except requests.RequestException as error:
@@ -290,12 +267,6 @@ def accounts(user=Depends(require_user)):
     return list_connected_accounts(user["id"])
 
 
-@app.put("/api/accounts")
-def link_profile(payload: GameProfile, user=Depends(require_user)):
-    save_account(user["id"], payload.platform.lower(), payload.platform_user_id)
-    return {"status": "saved"}
-
-
 @app.delete("/api/accounts/{account_id}")
 def unlink_profile(account_id: int, user=Depends(require_user)):
     if not delete_account(user["id"], account_id):
@@ -333,8 +304,10 @@ def remove_owned_game(owned_game_id: int, user=Depends(require_user)):
 
 
 @app.post("/api/steam/sync")
-def sync_steam_library(payload: SteamSyncRequest, user=Depends(require_user)):
-    steam_id = payload.steam_id
+def sync_steam_library(payload: Optional[SteamSyncRequest] = None, user=Depends(require_user)):
+    steam_id = verified_steam_id(user["id"])
+    if steam_id is None:
+        raise HTTPException(409, "Connect and verify your Steam account first.")
     try:
         games = fetch_owned_steam_games(steam_id)
     except SteamConfigurationError:
@@ -345,7 +318,8 @@ def sync_steam_library(payload: SteamSyncRequest, user=Depends(require_user)):
         logger.warning("Steam library request failed (%s)", type(error).__name__)
         raise HTTPException(503, "Steam is temporarily unavailable.") from None
 
-    save_steam_library(user["id"], steam_id, games)
+    if not save_steam_library(user["id"], steam_id, games):
+        raise HTTPException(409, "Steam account changed during import.")
 
     return {
         "status": "synced",
