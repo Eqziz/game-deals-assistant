@@ -10,12 +10,16 @@ const copy = {
   favorites: ["Избранное", "Favorites"],
   library: ["Библиотека", "Library"],
   profiles: ["Мои профили", "My profiles"],
-  linkProfile: ["Привязать профиль", "Link a profile"],
-  platformName: ["Название площадки", "Platform name"],
-  profileID: ["Игровой ID, ник или ссылка на профиль", "Player ID, username, or profile URL"],
-  profileHint: ["Выберите площадку и сохраните свой игровой ID или публичную ссылку.", "Select a platform and save your player ID or public profile URL."],
-  noProfiles: ["Вы пока не добавили игровые профили.", "You haven’t added any gaming profiles yet."],
-  editProfile: ["Изменить", "Edit"],
+  connect: ["Подключить", "Connect"],
+  verify: ["Подтвердить", "Verify"],
+  verifyRequired: ["Требует подтверждения", "Verification required"],
+  connected: ["Подключено", "Connected"],
+  disconnected: ["Не подключено", "Not connected"],
+  providerUnavailable: ["Подключение временно недоступно", "Connection currently unavailable"],
+  connectionFailed: ["Подключение не завершено. Попробуйте ещё раз.", "Connection was not completed. Please try again."],
+  connectionSuccess: ["Игровой профиль подключён", "Gaming profile connected"],
+  partial: ["Временно недоступны", "Temporarily unavailable"],
+  pageEmpty: ["На этой странице подходящих предложений нет.", "No matching deals on this page."],
   unlink: ["Отвязать", "Unlink"],
   deals: ["Скидки на игры", "Game deals"],
   close: ["Закрыть", "Dismiss"],
@@ -43,11 +47,6 @@ const copy = {
   platform: ["Платформа", "Platform"],
   platforms: ["Все платформы", "All platforms"],
   addGame: ["Добавить игру", "Add a game"],
-  steamLibrary: ["Библиотека Steam", "Steam library"],
-  steamHint: [
-    "Введите 17 цифр SteamID64. Откройте доступ к играм в настройках приватности Steam.",
-    "Enter your 17-digit SteamID64. Set game details to public in your Steam privacy settings.",
-  ],
   import: ["Импортировать", "Import games"],
   game: ["Название игры", "Game title"],
   appId: ["App ID (необязательно)", "App ID (optional)"],
@@ -116,7 +115,7 @@ const copy = {
     "Service is currently unavailable. Please try again later.",
   ],
   steamError: [
-    "Импорт не удался. Проверьте SteamID64 и доступ к играм в профиле.",
+    "Импорт не удался. Проверьте, что библиотека игр Steam открыта.",
     "Import failed. Check the SteamID64 and the profile’s game privacy settings.",
   ],
   untitled: ["Без названия", "Untitled"],
@@ -221,6 +220,10 @@ const state = {
   favorites: [],
   library: [],
   accounts: [],
+  providers: [],
+  providerStatus: "idle",
+  pages: new Map(),
+  requestPage: 0,
   favoriteStatus: "idle",
   libraryStatus: "idle",
   accountStatus: "idle",
@@ -232,11 +235,12 @@ let requestId = 0,
   toastTimer,
   dialogDeal,
   targetOpener;
-const personalRequests = { favorites: 0, library: 0, accounts: 0 };
+const personalRequests = { favorites: 0, library: 0, accounts: 0, providers: 0 };
 const personalResources = {
   favorites: ["/api/favorites", "favoriteStatus"],
   library: ["/api/owned-games", "libraryStatus"],
   accounts: ["/api/accounts", "accountStatus"],
+  providers: ["/api/accounts/providers", "providerStatus"],
 };
 function message(box, key, action, callback) {
   const div = node("div", "empty");
@@ -284,7 +288,7 @@ function applyLanguage() {
     .forEach((el) => (el.placeholder = t(el.dataset.placeholder)));
   $("language").textContent = language === "ru" ? "EN" : "RU";
   $("language").setAttribute("aria-label", t("lang"));
-  for (const select of [$("manualPlatform"), $("libraryPlatform"), $("profilePlatform")]) {
+  for (const select of [$("manualPlatform"), $("libraryPlatform")]) {
     const selected = select.value;
     select.replaceChildren();
     if (select.id === "libraryPlatform")
@@ -300,7 +304,7 @@ function applyLanguage() {
   renderPersonal();
 }
 function setTab() {
-  if (location.hash === "#sync") history.replaceState(null, "", "#profiles");
+  if (["#sync", "#profile"].includes(location.hash)) history.replaceState(null, "", "#profiles");
   const hash = location.hash.slice(1);
   state.tab = ["favorites", "library", "profiles"].includes(hash) ? hash : "deals";
   document
@@ -325,17 +329,14 @@ function clearPersonal() {
   state.accounts = [];
   state.favoriteStatus = state.libraryStatus = state.accountStatus = "idle";
   $("profileRows").replaceChildren();
-  $("profileForm").reset();
-  updateCustomPlatform();
+  state.providers = [];
+  state.providerStatus = "idle";
   state.deals.forEach((d) => {
     d.is_favorite = false;
     d.owned = false;
   });
   $("owned").checked = false;
   if ($("priceDialog").open) $("priceDialog").close();
-  $("steamForm").reset();
-  $("steamForm").elements.steam_id.defaultValue = "";
-  $("steamForm").elements.steam_id.value = "";
   $("manualForm").reset();
   document.querySelectorAll(".feedback").forEach((el) => el.replaceChildren());
 }
@@ -382,13 +383,6 @@ async function loadPersonal(kind) {
       return;
     state[kind] = data;
     state[status] = "ready";
-    if (kind === "accounts") {
-      const saved = data.find((account) => account.platform === "steam");
-      const steamId = saved?.platform_user_id.match(/^(?:https?:\/\/steamcommunity\.com\/profiles\/)?([0-9]{17})\/?$/i)?.[1] || "";
-      const field = $("steamForm").elements.steam_id;
-      if (!field.value || field.value === field.defaultValue) field.value = steamId;
-      field.defaultValue = steamId;
-    }
     if (kind === "favorites") {
       const urls = new Set(data.map((d) => d.deal_url));
       state.deals.forEach((d) => (d.is_favorite = urls.has(d.deal_url)));
@@ -448,28 +442,30 @@ function queryParams() {
     hide_owned: String(Boolean(state.me && v.owned)),
   });
   if (v.title) params.set("title", v.title);
-  if (v.store === "steam_direct") params.set("source", "steam");
-  else if (v.store) params.set("store_id", v.store);
+  if (v.store) params.set("store_id", v.store);
   if (state.preset === "free") params.set("free_only", "true");
   if (state.preset === "under5") params.set("max_price", "5");
   return params;
 }
-async function loadDeals(append = false) {
+async function loadDeals(append = false, retryPage = null) {
   clearTimeout(searchTimer);
-  if (append && (state.next == null || state.load === "loading")) return;
-  if (!append && !validFilters()) return;
+  const fresh = !append && retryPage === null;
+  if (!fresh && (state.load === "loading" || (retryPage === null && state.next == null))) return;
+  if (fresh && !validFilters()) return;
   const token = ++requestId;
   requestController?.abort();
   requestController = new AbortController();
-  if (!append) {
+  if (fresh) {
+    state.pages.clear();
     state.deals = [];
     state.next = null;
     state.query = queryParams().toString();
   }
   state.load = "loading";
-  state.append = append;
+  state.append = !fresh;
   const params = new URLSearchParams(state.query);
-  const page = append ? state.next : 0;
+  const page = retryPage ?? (append ? state.next : 0);
+  state.requestPage = page;
   params.set("page", page);
   renderDeals();
   try {
@@ -480,15 +476,18 @@ async function loadDeals(append = false) {
       requestController.signal,
     );
     if (token !== requestId) return;
-    const urls = new Set(state.deals.map((d) => d.deal_url));
-    for (const deal of data.deals) {
-      if (!deal.deal_url || !urls.has(deal.deal_url)) state.deals.push(deal);
-      urls.add(deal.deal_url);
+    state.pages.set(page, data);
+    const urls = new Set();
+    state.deals = [];
+    for (const batch of state.pages.values()) {
+      for (const deal of batch.deals) {
+        if (!deal.deal_url || !urls.has(deal.deal_url)) state.deals.push(deal);
+        urls.add(deal.deal_url);
+      }
     }
-    state.next =
-      Number.isInteger(data.next_page) && data.next_page > page
-        ? data.next_page
-        : null;
+    const lastPage = Math.max(...state.pages.keys());
+    const nextPage = state.pages.get(lastPage).next_page;
+    state.next = Number.isInteger(nextPage) && nextPage > lastPage ? nextPage : null;
     state.load = "ready";
   } catch {
     if (token !== requestId) return;
@@ -679,9 +678,21 @@ function renderDeals() {
   box.replaceChildren();
   if (state.load === "loading" && state.append) message(box, "busy");
   else if (state.load === "error")
-    message(box, "failed", "retry", () => loadDeals(state.append));
-  else if (state.load === "ready" && !state.deals.length)
-    message(box, "emptyDeals", "reset", resetFilters);
+    message(box, "failed", "retry", () => loadDeals(false, state.requestPage));
+  else if (state.load === "ready") {
+    const missing = [...state.pages].filter(([, data]) => data.unavailable_stores?.length);
+    if (missing.length) {
+      const stores = [...new Set(missing.flatMap(([, data]) => data.unavailable_stores))];
+      const names = stores.map(id => [...$("store").options].find(o => o.value === id)?.textContent || id);
+      const warning = node("div", "empty");
+      warning.append(node("p", "", t("partial") + " · " + names.join(", ")),
+        button(t("retry"), () => loadDeals(false, missing[0][0])));
+      box.append(warning);
+    } else if (!state.deals.length) {
+      if (state.next != null) message(box, "pageEmpty");
+      else message(box, "emptyDeals", "reset", resetFilters);
+    }
+  }
   $("more").hidden = state.next == null || state.load !== "ready";
 }
 async function removeRecord(kind, id, btn) {
@@ -698,30 +709,9 @@ async function removeRecord(kind, id, btn) {
     btn.disabled = false;
   }
 }
-function updateCustomPlatform() {
-  const custom = $("profilePlatform").value === "other";
-  $("customPlatformLabel").hidden = !custom;
-  const input = $("profileForm").elements.customPlatform;
-  input.disabled = !custom;
-  input.required = custom;
-}
-
 function openManualForm() {
-  location.hash = "profiles";
-  setTab();
   $("manualForm").elements.title.focus();
 }
-
-function editProfile(account) {
-  const form = $("profileForm");
-  const known = Object.hasOwn(platforms, account.platform) && account.platform !== "other";
-  form.elements.platform.value = known ? account.platform : "other";
-  updateCustomPlatform();
-  form.elements.customPlatform.value = known ? "" : account.platform;
-  form.elements.identifier.value = account.platform_user_id;
-  form.elements.identifier.focus();
-}
-
 async function unlinkProfile(account, control) {
   control.disabled = true;
   try {
@@ -735,32 +725,79 @@ async function unlinkProfile(account, control) {
   }
 }
 
+async function connectProfile(platform, control) {
+  control.disabled = true;
+  try {
+    const data = await api("/api/accounts/" + encodeURIComponent(platform) + "/connect", "POST");
+    const url = safeURL(data.url);
+    if (!url || !url.startsWith("https://")) throw new Error("Invalid provider URL");
+    location.assign(url);
+  } catch {
+    control.disabled = false;
+    if (state.me) toast("connectionFailed");
+  }
+}
+
+async function importSteam(control, feedback) {
+  control.disabled = true;
+  feedback.textContent = t("busy");
+  try {
+    const result = await api("/api/steam/sync", "POST", {});
+    await Promise.all([loadPersonal("library"), loadDeals()]);
+    $("steamImportResult").textContent = t("imported") + " · " + result.games_count;
+  } catch {
+    if (state.me) feedback.textContent = t("steamError");
+  } finally {
+    control.disabled = false;
+  }
+}
+
 function renderProfiles() {
   const box = $("profileRows");
-  if (state.accountStatus === "error") {
-    message(box, "failed", "retry", () => loadPersonal("accounts"));
+  const statuses = [state.accountStatus, state.providerStatus];
+  if (statuses.includes("error")) {
+    message(box, "failed", "retry", () => Promise.all([loadPersonal("accounts"), loadPersonal("providers")]));
     return;
   }
-  if (state.accountStatus !== "ready" || !state.accounts.length) {
-    message(box, state.accountStatus === "ready" ? "noProfiles" : "busy");
+  if (!statuses.every(status => status === "ready")) {
+    message(box, "busy");
     return;
   }
-  box.replaceChildren(...state.accounts.map((account) => {
-    const row = node("article", "row compact");
+  const providers = new Map(state.providers.map(provider => [provider.platform, provider]));
+  for (const account of state.accounts) {
+    if (!providers.has(account.platform)) providers.set(account.platform, {platform: account.platform, available: false});
+  }
+  box.replaceChildren(...Array.from(providers.values(), provider => {
+    const platform = provider.platform;
+    const account = state.accounts.find(a => a.platform === platform);
+    const verified = Boolean(account?.verified_at);
+    const row = node("article", "provider-row");
+    row.dataset.platform = platform;
     const info = node("div");
-    const label = Object.hasOwn(platforms, account.platform) && platforms[account.platform];
-    info.append(node("h3", "", label || account.platform));
-    const url = safeURL(account.platform_user_id);
-    const identifier = node(url ? "a" : "p", "meta", account.platform_user_id);
-    if (url) {
-      identifier.href = url;
-      identifier.target = "_blank";
-      identifier.rel = "noopener noreferrer";
-    }
-    info.append(identifier);
+    const label = Object.hasOwn(platforms, platform) ? platforms[platform] : platform;
+    info.append(node("h3", "", label));
+    const status = verified ? "connected" : account ? "verifyRequired" : provider.available ? "disconnected" : "providerUnavailable";
+    info.append(node("p", verified ? "target-info" : "meta", t(status)));
+    if (account) info.append(node("p", "meta", account.display_name || account.platform_user_id));
     const actions = node("div", "actions");
-    const unlink = button(t("unlink"), () => unlinkProfile(account, unlink));
-    actions.append(button(t("editProfile"), () => editProfile(account)), unlink);
+    if (!verified && provider.available) {
+      const connect = button(t(account ? "verify" : "connect"), () => connectProfile(platform, connect));
+      actions.append(connect);
+    } else if (!verified && account) {
+      info.append(node("p", "meta", t("providerUnavailable")));
+    }
+    if (verified && platform === "steam" && provider.library_import_available) {
+      const feedback = node("p", "feedback");
+      feedback.id = "steamImportResult";
+      feedback.setAttribute("role", "status");
+      const control = button(t("import"), () => importSteam(control, feedback));
+      actions.append(control);
+      info.append(feedback);
+    }
+    if (account) {
+      const unlink = button(t("unlink"), () => unlinkProfile(account, unlink));
+      actions.append(unlink);
+    }
     row.append(info, actions);
     return row;
   }));
@@ -875,7 +912,6 @@ async function loadStores() {
     for (const s of data.all) {
       const id = String(s.store_id);
       if (
-        id !== "cheapshark_all" &&
         ![...$("store").options].some((o) => o.value === id)
       ) {
         $("store").add(new Option(s.store_name, id));
@@ -899,9 +935,7 @@ function resumeLogin() {
     $("query").value = v.title || "";
     $("min").value = v.min ?? 10;
     $("max").value = v.max ?? 100;
-    if (v.store && ![...$("store").options].some((o) => o.value === v.store))
-      $("store").add(new Option(v.store, v.store));
-    $("store").value = v.store || "";
+    $("store").value = [...$("store").options].some(o => o.value === v.store) ? v.store : "";
     $("owned").checked = Boolean(v.owned && state.me);
     $("sort").value = pending.sort || "savings";
     showPreset(pending.preset);
@@ -920,6 +954,7 @@ async function bootstrap() {
     state.me && loadPersonal("favorites"),
     state.me && loadPersonal("library"),
     state.me && loadPersonal("accounts"),
+    state.me && loadPersonal("providers"),
   ]);
   if (pending?.url && state.me) {
     let deal = state.deals.find((d) => d.deal_url === pending.url);
@@ -974,42 +1009,13 @@ function bindForm(id, path, payload, onSuccess) {
       await Promise.all([loadPersonal("library"), loadDeals()]);
     } catch {
       feedback.classList.add("error");
-      feedback.textContent = t(
-        id === "steamForm" ? "steamError" : "actionFailed",
-      );
+      feedback.textContent = t("actionFailed");
     } finally {
       btn.disabled = false;
     }
   });
 }
-$("profilePlatform").addEventListener("change", () => {
-  updateCustomPlatform();
-  const current = state.accounts.find((a) => a.platform === $("profilePlatform").value);
-  $("profileForm").elements.identifier.value = current?.platform_user_id || "";
-});
 $("openManual").addEventListener("click", openManualForm);
-$("profileForm").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const form = event.currentTarget;
-  const platform = form.elements.platform.value;
-  const control = form.querySelector("button.primary");
-  const feedback = form.querySelector(".feedback");
-  if (!state.me) return login();
-  control.disabled = true;
-  feedback.textContent = t("busy");
-  try {
-    await api("/api/accounts", "PUT", {
-      platform: platform === "other" ? form.elements.customPlatform.value.trim() : platform,
-      platform_user_id: form.elements.identifier.value.trim(),
-    });
-    await loadPersonal("accounts");
-    feedback.textContent = t("saved");
-  } catch {
-    if (state.me) feedback.textContent = t("actionFailed");
-  } finally {
-    control.disabled = false;
-  }
-});
 $("account").addEventListener("click", accountAction);
 $("language").addEventListener("click", () => {
   language = language === "ru" ? "en" : "ru";
@@ -1088,15 +1094,6 @@ $("priceForm").addEventListener("submit", async (e) => {
   }
 });
 bindForm(
-  "steamForm",
-  "/api/steam/sync",
-  (d) => ({ steam_id: d.get("steam_id").trim() }),
-  (result, feedback) => {
-    feedback.textContent = t("imported") + " · " + result.games_count;
-    loadPersonal("accounts");
-  },
-);
-bindForm(
   "manualForm",
   "/api/owned-games/manual",
   (d) => ({
@@ -1121,5 +1118,13 @@ if (address.searchParams.has("auth_error")) {
   );
   address.searchParams.delete("auth_error");
   history.replaceState(null, "", address);
+}
+if (address.searchParams.has("account_result")) {
+  const connected = address.searchParams.get("account_result") === "connected";
+  if (connected) toast("connectionSuccess"); else notice("connectionFailed");
+  address.searchParams.delete("account_result");
+  address.hash = "profiles";
+  history.replaceState(null, "", address);
+  setTab();
 }
 bootstrap();

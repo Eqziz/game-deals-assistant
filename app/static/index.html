@@ -53,7 +53,9 @@
               ><span class="sr" data-t="store">Магазин</span
               ><select id="store">
                 <option value="" data-t="allStores">Все магазины</option>
-                <option value="steam_direct">Steam Direct</option>
+                <option value="steam">Steam</option>
+                <option value="gog">GOG</option>
+                <option value="epic">Epic Games Store</option>
               </select></label
             >
             <button
@@ -148,42 +150,7 @@
           ><button id="openManual" type="button" data-t="addGame">Добавить игру</button>
         </div>
         <div id="libraryRows"></div>
-      </section>
-      <section id="profiles" hidden>
-        <h1 data-t="profiles">Мои профили</h1>
-        <div id="syncGate"></div>
-        <div id="profileRows" class="personal" aria-live="polite" hidden></div>
         <div class="personal forms">
-          <form id="profileForm">
-            <h2 data-t="linkProfile">Привязать профиль</h2>
-            <p data-t="profileHint">Выберите площадку и сохраните свой игровой ID или публичную ссылку.</p>
-            <label><span data-t="platform">Платформа</span><select id="profilePlatform" name="platform"></select></label>
-            <label id="customPlatformLabel" hidden><span data-t="platformName">Название площадки</span>
-              <input name="customPlatform" maxlength="64" disabled>
-            </label>
-            <label><span data-t="profileID">Игровой ID, ник или ссылка на профиль</span>
-              <input name="identifier" required maxlength="512" autocomplete="off" spellcheck="false">
-            </label>
-            <button class="primary" data-t="save">Сохранить</button>
-            <div class="feedback" role="status"></div>
-          </form>
-          <form id="steamForm">
-            <h2 data-t="steamLibrary">Библиотека Steam</h2>
-            <p data-t="steamHint">
-              Введите 17 цифр SteamID64. Откройте доступ к играм в настройках
-              приватности Steam.
-            </p>
-            <label
-              >SteamID64<input
-                name="steam_id"
-                required
-                pattern="[0-9]{17}"
-                maxlength="17"
-                inputmode="numeric"
-                placeholder="76561198000000000" /></label
-            ><button class="primary" data-t="import">Импортировать</button>
-            <div class="feedback" role="status"></div>
-          </form>
           <form id="manualForm">
             <h2 data-t="addGame">Добавить игру</h2>
             <label
@@ -202,6 +169,11 @@
             <div class="feedback" role="status"></div>
           </form>
         </div>
+      </section>
+      <section id="profiles" hidden>
+        <h1 data-t="profiles">Мои профили</h1>
+        <div id="syncGate"></div>
+        <div id="profileRows" class="personal" aria-live="polite" hidden></div>
       </section>
     </main>
     <footer class="wrap policy-links">

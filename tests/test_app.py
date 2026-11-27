@@ -1,4 +1,4 @@
-﻿import os
+import os
 from uuid import uuid4
 
 import psycopg
@@ -48,14 +48,15 @@ DEAL = {
 
 
 def test_public_endpoints(client, monkeypatch):
-    monkeypatch.setattr(main, "fetch_stores", lambda: [{"store_id": "1", "store_name": "Steam"}])
-    monkeypatch.setattr(main, "fetch_cheapshark_deals", lambda **kw: {"deals": [DEAL.copy()], "next_page": 1})
+    monkeypatch.setattr(main, "fetch_stores", lambda: [{"store_id": "steam", "store_name": "Steam"}])
+    monkeypatch.setattr(main, "fetch_catalog_deals", lambda **kw: {"deals": [DEAL.copy()], "next_page": 1, "unavailable_stores": []})
     assert client.get("/").status_code == 200
     assert client.get("/api/health").json()["status"] == "ok"
     assert client.get("/api/me").json() == {"authenticated": False, "user": None}
     assert client.get("/api/stores").json()["all"][-1]["store_name"] == "Steam"
     result = client.get("/api/deals").json()
     assert result["next_page"] == 1
+    assert result["unavailable_stores"] == []
     assert result["deals"][0]["owned"] is False
     assert result["deals"][0]["is_favorite"] is False
     assert client.get("/api/deals?min_discount=80&max_discount=10").status_code == 400
@@ -63,11 +64,12 @@ def test_public_endpoints(client, monkeypatch):
 
 @pytest.mark.parametrize("method,url,body", [
     ("GET", "/api/favorites", None), ("GET", "/api/owned-games", None),
-    ("GET", "/api/accounts", None), ("POST", "/api/favorites", DEAL),
-    ("PUT", "/api/accounts", {"platform": "xbox", "platform_user_id": "gamertag"}),
+    ("GET", "/api/accounts", None), ("GET", "/api/accounts/providers", None),
+    ("POST", "/api/favorites", DEAL),
+    ("POST", "/api/accounts/steam/connect", None),
     ("DELETE", "/api/accounts/1", None),
     ("POST", "/api/owned-games/manual", {"platform": "steam", "title": "Hades"}),
-    ("POST", "/api/steam/sync", {"steam_id": "76561198000000000"}),
+    ("POST", "/api/steam/sync", {}),
 ])
 def test_personal_actions_require_login(client, method, url, body):
     assert client.request(method, url, json=body).status_code == 401
@@ -98,28 +100,44 @@ def test_account_isolation_and_second_device(client):
     assert client.delete(f"/api/owned-games/{game['id']}").is_success
 
 
-def test_game_profiles_are_private_and_updatable(client, monkeypatch):
+def test_game_profiles_are_private_and_verified(client, monkeypatch):
+    from app import game_accounts
     owner = uuid4().hex
     sign_in(client, owner)
-    profile = {"platform": "Example Network", "platform_user_id": "Player One"}
-    assert client.put("/api/accounts", json=profile).is_success
-    profile["platform_user_id"] = "https://example.org/players/two"
-    assert client.put("/api/accounts", json=profile).is_success
-    entry, = client.get("/api/accounts").json()
-    assert entry["platform_user_id"] == profile["platform_user_id"]
+
+    providers = client.get("/api/accounts/providers").json()
+    assert any(p["platform"] == "steam" and p["available"] is True for p in providers)
+
+    # Connect Steam via OpenID flow
+    start = client.post("/api/accounts/steam/connect")
+    assert start.status_code == 200
+    assert start.json()["url"].startswith("https://steamcommunity.com/openid/login?")
+    from urllib.parse import parse_qs, urlsplit
+    return_to = parse_qs(urlsplit(start.json()["url"]).query)["openid.return_to"][0]
+    state = parse_qs(urlsplit(return_to).query)["state"][0]
+
+    async def fake_verify_steam(request, st):
+        assert st == state
+        return "76561198000000000", "76561198000000000"
+
+    monkeypatch.setattr(game_accounts, "verify_steam", fake_verify_steam)
+    cb = client.get(f"/auth/game/steam/callback?state={state}", follow_redirects=False)
+    assert cb.headers["location"] == "/?account_result=connected#profiles"
+
+    steam, = client.get("/api/accounts").json()
+    assert steam["platform"] == "steam"
+    assert steam["verified_at"] is not None
+
+    # Isolation across accounts
     sign_in(client, uuid4().hex)
     assert client.get("/api/accounts").json() == []
-    assert client.delete(f"/api/accounts/{entry['id']}").status_code == 404
-    sign_in(client, owner)
-    assert client.delete(f"/api/accounts/{entry['id']}").is_success
-    assert client.get("/api/accounts").json() == []
+    assert client.delete(f"/api/accounts/{steam['id']}").status_code == 404
 
+    sign_in(client, owner)
     monkeypatch.setattr(main, "fetch_owned_steam_games", lambda _: [
         {"platform_game_id": "1145360", "title": "Hades", "playtime_minutes": 30}
     ])
-    assert client.post("/api/steam/sync", json={"steam_id": "76561198000000000"}).is_success
-    steam, = client.get("/api/accounts").json()
-    assert steam["platform"] == "steam"
+    assert client.post("/api/steam/sync", json={}).is_success
     assert client.delete(f"/api/accounts/{steam['id']}").is_success
     assert client.get("/api/owned-games").json()[0]["title"] == "Hades"
 
@@ -136,17 +154,18 @@ def test_cross_origin_and_revocation(client):
 
 def test_upstream_failures_are_retryable_and_private(client, monkeypatch, caplog):
     sign_in(client, uuid4().hex)
+    db.save_verified_account(client.cookies.get("gda_session"), "steam", "76561198000000000", "Player")
     def unavailable(*args, **kwargs):
         raise requests.ConnectionError("private-upstream-marker")
     monkeypatch.setattr(main, "fetch_owned_steam_games", unavailable)
-    response = client.post("/api/steam/sync", json={"steam_id": "76561198000000000"})
+    response = client.post("/api/steam/sync", json={})
     assert response.status_code == 503
-    monkeypatch.setattr(main, "fetch_steam_deals", unavailable)
+    monkeypatch.setattr(main, "fetch_catalog_deals", unavailable)
     catalog = client.get("/api/deals?source=steam")
     assert catalog.status_code == 503
     assert "private-upstream-marker" not in response.text + catalog.text + caplog.text
-    monkeypatch.setattr(main, "fetch_steam_deals", lambda **kw: {"deals": [], "next_page": None})
-    assert client.get("/api/deals?source=steam").json() == {"deals": [], "next_page": None}
+    monkeypatch.setattr(main, "fetch_catalog_deals", lambda **kw: {"deals": [], "next_page": None, "unavailable_stores": []})
+    assert client.get("/api/deals?source=steam").json() == {"deals": [], "next_page": None, "unavailable_stores": []}
 
 def test_google_login_round_trip(client, monkeypatch):
     from app import auth
