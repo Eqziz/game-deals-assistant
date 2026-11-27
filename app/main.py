@@ -19,6 +19,8 @@ from .db import (
     favorite_deal_urls,
     save_steam_library,
     list_connected_accounts,
+    save_account,
+    delete_account,
     upsert_owned_game,
     list_owned_games,
     delete_owned_game,
@@ -87,6 +89,11 @@ class ManualOwnedGameCreate(InputModel):
 
 class SteamSyncRequest(InputModel):
     steam_id: str = Field(pattern=r"^[0-9]{17}$")
+
+
+class GameProfile(InputModel):
+    platform: str = Field(min_length=1, max_length=64)
+    platform_user_id: str = Field(min_length=1, max_length=512)
 
 
 @app.get("/")
@@ -281,6 +288,19 @@ def favorite_delete_by_url(payload: DealLink, user=Depends(require_user)):
 @app.get("/api/accounts")
 def accounts(user=Depends(require_user)):
     return list_connected_accounts(user["id"])
+
+
+@app.put("/api/accounts")
+def link_profile(payload: GameProfile, user=Depends(require_user)):
+    save_account(user["id"], payload.platform.lower(), payload.platform_user_id)
+    return {"status": "saved"}
+
+
+@app.delete("/api/accounts/{account_id}")
+def unlink_profile(account_id: int, user=Depends(require_user)):
+    if not delete_account(user["id"], account_id):
+        raise HTTPException(404, "Profile not found")
+    return {"status": "deleted"}
 
 
 @app.get("/api/owned-games")

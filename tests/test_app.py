@@ -64,6 +64,8 @@ def test_public_endpoints(client, monkeypatch):
 @pytest.mark.parametrize("method,url,body", [
     ("GET", "/api/favorites", None), ("GET", "/api/owned-games", None),
     ("GET", "/api/accounts", None), ("POST", "/api/favorites", DEAL),
+    ("PUT", "/api/accounts", {"platform": "xbox", "platform_user_id": "gamertag"}),
+    ("DELETE", "/api/accounts/1", None),
     ("POST", "/api/owned-games/manual", {"platform": "steam", "title": "Hades"}),
     ("POST", "/api/steam/sync", {"steam_id": "76561198000000000"}),
 ])
@@ -94,6 +96,32 @@ def test_account_isolation_and_second_device(client):
     assert client.get("/api/owned-games").json()[0]["id"] == game["id"]
     assert client.delete(f"/api/favorites/{favorite['id']}").is_success
     assert client.delete(f"/api/owned-games/{game['id']}").is_success
+
+
+def test_game_profiles_are_private_and_updatable(client, monkeypatch):
+    owner = uuid4().hex
+    sign_in(client, owner)
+    profile = {"platform": "Example Network", "platform_user_id": "Player One"}
+    assert client.put("/api/accounts", json=profile).is_success
+    profile["platform_user_id"] = "https://example.org/players/two"
+    assert client.put("/api/accounts", json=profile).is_success
+    entry, = client.get("/api/accounts").json()
+    assert entry["platform_user_id"] == profile["platform_user_id"]
+    sign_in(client, uuid4().hex)
+    assert client.get("/api/accounts").json() == []
+    assert client.delete(f"/api/accounts/{entry['id']}").status_code == 404
+    sign_in(client, owner)
+    assert client.delete(f"/api/accounts/{entry['id']}").is_success
+    assert client.get("/api/accounts").json() == []
+
+    monkeypatch.setattr(main, "fetch_owned_steam_games", lambda _: [
+        {"platform_game_id": "1145360", "title": "Hades", "playtime_minutes": 30}
+    ])
+    assert client.post("/api/steam/sync", json={"steam_id": "76561198000000000"}).is_success
+    steam, = client.get("/api/accounts").json()
+    assert steam["platform"] == "steam"
+    assert client.delete(f"/api/accounts/{steam['id']}").is_success
+    assert client.get("/api/owned-games").json()[0]["title"] == "Hades"
 
 
 def test_cross_origin_and_revocation(client):

@@ -41,4 +41,6 @@
 | `POST /api/owned-games/manual` | Добавить игру с `platform` и `title`. Опционально передать `platform_game_id` и `playtime_minutes`. |
 | `DELETE /api/owned-games/{id}` | Удалить игру из библиотеки. |
 | `GET /api/accounts` | Подключённые игровые аккаунты. |
+| `PUT /api/accounts` | Сохранить или изменить приватную запись профиля. Передать `platform` и `platform_user_id` (ник, ID или публичный URL). На площадку сохраняется одна запись для текущего пользователя. |
+| `DELETE /api/accounts/{id}` | Отвязать свой профиль. Игры в библиотеке сохраняются. |
 | `POST /api/steam/sync` | Импортировать доступные игры. Передать `steam_id` строкой из 17 цифр. |

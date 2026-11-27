@@ -9,7 +9,14 @@ const copy = {
   catalog: ["Каталог", "Catalog"],
   favorites: ["Избранное", "Favorites"],
   library: ["Библиотека", "Library"],
-  sync: ["Синхронизация", "Sync"],
+  profiles: ["Мои профили", "My profiles"],
+  linkProfile: ["Привязать профиль", "Link a profile"],
+  platformName: ["Название площадки", "Platform name"],
+  profileID: ["Игровой ID, ник или ссылка на профиль", "Player ID, username, or profile URL"],
+  profileHint: ["Выберите площадку и сохраните свой игровой ID или публичную ссылку.", "Select a platform and save your player ID or public profile URL."],
+  noProfiles: ["Вы пока не добавили игровые профили.", "You haven’t added any gaming profiles yet."],
+  editProfile: ["Изменить", "Edit"],
+  unlink: ["Отвязать", "Unlink"],
   deals: ["Скидки на игры", "Game deals"],
   close: ["Закрыть", "Dismiss"],
   search: ["Поиск по названию", "Search games by title"],
@@ -145,6 +152,15 @@ const platforms = {
   gog: "GOG",
   ea: "EA",
   ubisoft: "Ubisoft Connect",
+  xbox: "Xbox",
+  playstation: "PlayStation Network",
+  nintendo: "Nintendo Switch",
+  battlenet: "Battle.net",
+  riot: "Riot Games",
+  rockstar: "Rockstar Games",
+  itch: "itch.io",
+  amazon: "Amazon Games",
+  vkplay: "VK Play",
   other: "",
 };
 const icons = {
@@ -204,8 +220,10 @@ const state = {
   query: null,
   favorites: [],
   library: [],
+  accounts: [],
   favoriteStatus: "idle",
   libraryStatus: "idle",
+  accountStatus: "idle",
 };
 let requestId = 0,
   personalVersion = 0,
@@ -214,7 +232,12 @@ let requestId = 0,
   toastTimer,
   dialogDeal,
   targetOpener;
-const personalRequests = { favorites: 0, library: 0 };
+const personalRequests = { favorites: 0, library: 0, accounts: 0 };
+const personalResources = {
+  favorites: ["/api/favorites", "favoriteStatus"],
+  library: ["/api/owned-games", "libraryStatus"],
+  accounts: ["/api/accounts", "accountStatus"],
+};
 function message(box, key, action, callback) {
   const div = node("div", "empty");
   div.append(node("p", "", t(key)));
@@ -261,7 +284,7 @@ function applyLanguage() {
     .forEach((el) => (el.placeholder = t(el.dataset.placeholder)));
   $("language").textContent = language === "ru" ? "EN" : "RU";
   $("language").setAttribute("aria-label", t("lang"));
-  for (const select of [$("manualPlatform"), $("libraryPlatform")]) {
+  for (const select of [$("manualPlatform"), $("libraryPlatform"), $("profilePlatform")]) {
     const selected = select.value;
     select.replaceChildren();
     if (select.id === "libraryPlatform")
@@ -277,8 +300,9 @@ function applyLanguage() {
   renderPersonal();
 }
 function setTab() {
+  if (location.hash === "#sync") history.replaceState(null, "", "#profiles");
   const hash = location.hash.slice(1);
-  state.tab = ["favorites", "library", "sync"].includes(hash) ? hash : "deals";
+  state.tab = ["favorites", "library", "profiles"].includes(hash) ? hash : "deals";
   document
     .querySelectorAll("main > section")
     .forEach((el) => (el.hidden = el.id !== state.tab));
@@ -298,7 +322,11 @@ function clearPersonal() {
   state.me = null;
   state.favorites = [];
   state.library = [];
-  state.favoriteStatus = state.libraryStatus = "idle";
+  state.accounts = [];
+  state.favoriteStatus = state.libraryStatus = state.accountStatus = "idle";
+  $("profileRows").replaceChildren();
+  $("profileForm").reset();
+  updateCustomPlatform();
   state.deals.forEach((d) => {
     d.is_favorite = false;
     d.owned = false;
@@ -306,6 +334,8 @@ function clearPersonal() {
   $("owned").checked = false;
   if ($("priceDialog").open) $("priceDialog").close();
   $("steamForm").reset();
+  $("steamForm").elements.steam_id.defaultValue = "";
+  $("steamForm").elements.steam_id.value = "";
   $("manualForm").reset();
   document.querySelectorAll(".feedback").forEach((el) => el.replaceChildren());
 }
@@ -343,17 +373,22 @@ async function loadPersonal(kind) {
   if (!state.me) return;
   const version = personalVersion;
   const request = ++personalRequests[kind];
-  const status = kind === "favorites" ? "favoriteStatus" : "libraryStatus";
+  const [path, status] = personalResources[kind];
   state[status] = "loading";
   renderPersonal();
   try {
-    const data = await api(
-      kind === "favorites" ? "/api/favorites" : "/api/owned-games",
-    );
+    const data = await api(path);
     if (version !== personalVersion || request !== personalRequests[kind])
       return;
     state[kind] = data;
     state[status] = "ready";
+    if (kind === "accounts") {
+      const saved = data.find((account) => account.platform === "steam");
+      const steamId = saved?.platform_user_id.match(/^(?:https?:\/\/steamcommunity\.com\/profiles\/)?([0-9]{17})\/?$/i)?.[1] || "";
+      const field = $("steamForm").elements.steam_id;
+      if (!field.value || field.value === field.defaultValue) field.value = steamId;
+      field.defaultValue = steamId;
+    }
     if (kind === "favorites") {
       const urls = new Set(data.map((d) => d.deal_url));
       state.deals.forEach((d) => (d.is_favorite = urls.has(d.deal_url)));
@@ -663,6 +698,74 @@ async function removeRecord(kind, id, btn) {
     btn.disabled = false;
   }
 }
+function updateCustomPlatform() {
+  const custom = $("profilePlatform").value === "other";
+  $("customPlatformLabel").hidden = !custom;
+  const input = $("profileForm").elements.customPlatform;
+  input.disabled = !custom;
+  input.required = custom;
+}
+
+function openManualForm() {
+  location.hash = "profiles";
+  setTab();
+  $("manualForm").elements.title.focus();
+}
+
+function editProfile(account) {
+  const form = $("profileForm");
+  const known = Object.hasOwn(platforms, account.platform) && account.platform !== "other";
+  form.elements.platform.value = known ? account.platform : "other";
+  updateCustomPlatform();
+  form.elements.customPlatform.value = known ? "" : account.platform;
+  form.elements.identifier.value = account.platform_user_id;
+  form.elements.identifier.focus();
+}
+
+async function unlinkProfile(account, control) {
+  control.disabled = true;
+  try {
+    await api("/api/accounts/" + account.id, "DELETE");
+    await loadPersonal("accounts");
+    toast("removed");
+  } catch {
+    if (state.me) toast("actionFailed");
+  } finally {
+    control.disabled = false;
+  }
+}
+
+function renderProfiles() {
+  const box = $("profileRows");
+  if (state.accountStatus === "error") {
+    message(box, "failed", "retry", () => loadPersonal("accounts"));
+    return;
+  }
+  if (state.accountStatus !== "ready" || !state.accounts.length) {
+    message(box, state.accountStatus === "ready" ? "noProfiles" : "busy");
+    return;
+  }
+  box.replaceChildren(...state.accounts.map((account) => {
+    const row = node("article", "row compact");
+    const info = node("div");
+    const label = Object.hasOwn(platforms, account.platform) && platforms[account.platform];
+    info.append(node("h3", "", label || account.platform));
+    const url = safeURL(account.platform_user_id);
+    const identifier = node(url ? "a" : "p", "meta", account.platform_user_id);
+    if (url) {
+      identifier.href = url;
+      identifier.target = "_blank";
+      identifier.rel = "noopener noreferrer";
+    }
+    info.append(identifier);
+    const actions = node("div", "actions");
+    const unlink = button(t("unlink"), () => unlinkProfile(account, unlink));
+    actions.append(button(t("editProfile"), () => editProfile(account)), unlink);
+    row.append(info, actions);
+    return row;
+  }));
+}
+
 function renderPersonal() {
   document
     .querySelectorAll(".personal")
@@ -672,6 +775,7 @@ function renderPersonal() {
     return;
   }
   $("syncGate").replaceChildren();
+  renderProfiles();
   for (const [kind, id, status] of [
     ["favorites", "favoriteRows", state.favoriteStatus],
     ["library", "libraryRows", state.libraryStatus],
@@ -700,7 +804,7 @@ function renderPersonal() {
       if (!games.length) {
         if (state.library.length) message(box, "noMatch");
         else
-          message(box, "emptyLib", "addGame", () => (location.hash = "sync"));
+          message(box, "emptyLib", "addGame", openManualForm);
         continue;
       }
       box.replaceChildren(
@@ -802,7 +906,7 @@ function resumeLogin() {
     $("sort").value = pending.sort || "savings";
     showPreset(pending.preset);
   }
-  if (["deals", "favorites", "library", "sync"].includes(pending.tab))
+  if (["deals", "favorites", "library", "profiles", "sync"].includes(pending.tab))
     location.hash = pending.tab;
   setTab();
   return pending;
@@ -815,6 +919,7 @@ async function bootstrap() {
     loadDeals(),
     state.me && loadPersonal("favorites"),
     state.me && loadPersonal("library"),
+    state.me && loadPersonal("accounts"),
   ]);
   if (pending?.url && state.me) {
     let deal = state.deals.find((d) => d.deal_url === pending.url);
@@ -877,6 +982,34 @@ function bindForm(id, path, payload, onSuccess) {
     }
   });
 }
+$("profilePlatform").addEventListener("change", () => {
+  updateCustomPlatform();
+  const current = state.accounts.find((a) => a.platform === $("profilePlatform").value);
+  $("profileForm").elements.identifier.value = current?.platform_user_id || "";
+});
+$("openManual").addEventListener("click", openManualForm);
+$("profileForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const platform = form.elements.platform.value;
+  const control = form.querySelector("button.primary");
+  const feedback = form.querySelector(".feedback");
+  if (!state.me) return login();
+  control.disabled = true;
+  feedback.textContent = t("busy");
+  try {
+    await api("/api/accounts", "PUT", {
+      platform: platform === "other" ? form.elements.customPlatform.value.trim() : platform,
+      platform_user_id: form.elements.identifier.value.trim(),
+    });
+    await loadPersonal("accounts");
+    feedback.textContent = t("saved");
+  } catch {
+    if (state.me) feedback.textContent = t("actionFailed");
+  } finally {
+    control.disabled = false;
+  }
+});
 $("account").addEventListener("click", accountAction);
 $("language").addEventListener("click", () => {
   language = language === "ru" ? "en" : "ru";
@@ -960,6 +1093,7 @@ bindForm(
   (d) => ({ steam_id: d.get("steam_id").trim() }),
   (result, feedback) => {
     feedback.textContent = t("imported") + " · " + result.games_count;
+    loadPersonal("accounts");
   },
 );
 bindForm(

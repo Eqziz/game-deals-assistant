@@ -14,6 +14,7 @@ async def check(browser, base_url, width, language):
     page.on("pageerror", lambda exc: errors.append(str(exc)))
     requests = []
     favorites = []
+    accounts = []
     title = "The Long Expedition " + "X" * 72
     stale_started = asyncio.Event()
     stale_finished = asyncio.Event()
@@ -41,6 +42,15 @@ async def check(browser, base_url, width, language):
                         "normal_price": 24.99, "sale_price": 4.99, "savings": 80,
                         "thumb": base_url + "/missing-image", "store_name": "Steam", "is_favorite": False}
                 data = {"deals": [deal], "next_page": 1 if number == 0 else None}
+        elif parts.path == "/api/accounts":
+            if req.method == "PUT":
+                accounts[:] = [{**req.post_data_json, "id": 7}]
+                data = {"status": "saved"}
+            else:
+                data = accounts
+        elif parts.path == "/api/accounts/7" and req.method == "DELETE":
+            accounts.clear()
+            data = {"status": "deleted"}
         elif parts.path == "/api/favorites":
             if req.method == "POST":
                 favorites.append({**req.post_data_json, "id": 1})
@@ -86,6 +96,23 @@ async def check(browser, base_url, width, language):
     assert requests[-1] == requests[-2]
     await page.locator('nav a[href="#favorites"]').click()
     await expect(page.locator("#favoriteRows h3")).to_have_text(title)
+    await page.goto(base_url + "/#sync")
+    await expect(page.locator('nav a[href="#profiles"]')).to_have_attribute("aria-current", "page")
+    assert page.url.endswith("#profiles")
+    await page.locator("#profilePlatform").select_option("other")
+    form = page.locator("#profileForm")
+    await form.locator("[name=customPlatform]").fill("Indie Hub")
+    await form.locator("[name=identifier]").fill("My player ID")
+    await form.locator("button.primary").click()
+    rows = page.locator("#profileRows")
+    await expect(rows).to_contain_text("My player ID")
+    await rows.get_by_role("button", name="Изменить" if language == "ru" else "Edit").click()
+    await expect(form.locator("[name=identifier]")).to_be_focused()
+    await form.locator("[name=identifier]").fill("https://example.org/player")
+    await form.locator("button.primary").click()
+    await expect(rows.locator("a")).to_have_attribute("href", "https://example.org/player")
+    await rows.get_by_role("button", name="Отвязать" if language == "ru" else "Unlink").click()
+    await expect(rows.locator("article")).to_have_count(0)
     assert await page.evaluate("document.documentElement.scrollWidth <= innerWidth")
     assert not errors, errors
     await page.close()

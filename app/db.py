@@ -140,6 +140,19 @@ def list_connected_accounts(user_id):
         return conn.execute("SELECT * FROM connected_accounts WHERE user_id = %s ORDER BY platform", (user_id,)).fetchall()
 
 
+def save_account(user_id, platform, profile):
+    with get_connection() as conn:
+        conn.execute(UPSERT_ACCOUNT, (user_id, platform, profile))
+
+
+def delete_account(user_id, account_id):
+    with get_connection() as conn:
+        return conn.execute(
+            "DELETE FROM connected_accounts WHERE user_id = %s AND id = %s",
+            (user_id, account_id),
+        ).rowcount > 0
+
+
 def upsert_owned_game(user_id, platform, platform_game_id, title="", playtime_minutes=0):
     with get_connection() as conn:
         conn.execute(UPSERT_GAME, (user_id, platform, str(platform_game_id), title, playtime_minutes))
